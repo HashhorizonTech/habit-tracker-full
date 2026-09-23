@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Tend",
+    "slug": "tend",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tend.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0d0b1a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.tend.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-audio",
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-asset"
+    ],
+    "scheme": "tend",
+    "backgroundColor": "#0d0b1a",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

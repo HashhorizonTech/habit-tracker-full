@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>
+@keyframes tdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes tdTwinkle{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.72);opacity:.6}}
+</style></helmet>
+<div style="position:relative;width:{{box}};height:{{box}};flex-shrink:0">
+<div style="position:absolute;left:0;top:0;width:120px;height:120px;transform:scale({{scale}});transform-origin:0 0">
+  <div style="position:absolute;left:32px;top:106px;width:56px;height:9px;border-radius:50%;background:oklch(0 0 0 / 0.18);filter:blur(3px)"></div>
+  <div style="position:absolute;inset:0;animation:{{anim}}">
+    <div style="position:absolute;left:58.5px;top:18px;width:3px;height:14px;border-radius:2px;background:oklch(0.6 0.12 150)"></div>
+    <div style="position:absolute;left:60px;top:10px;width:18px;height:12px;border-radius:0 100% 0 100%;background:oklch(0.76 0.15 145);transform:rotate(-18deg)"></div>
+    <div style="position:absolute;left:20px;top:28px;width:80px;height:76px;border-radius:50% 50% 46% 46% / 58% 58% 42% 42%;background:radial-gradient(circle at 34% 28%, color-mix(in oklch, var(--a2) 55%, white) 0%, var(--a2) 38%, var(--a1) 88%);box-shadow:inset -8px -10px 0 oklch(0 0 0 / 0.07), 0 14px 30px -12px var(--glow)"></div>
+    <div style="position:absolute;left:32px;top:73px;width:11px;height:6px;border-radius:50%;background:oklch(0.8 0.13 15 / 0.6)"></div>
+    <div style="position:absolute;left:77px;top:73px;width:11px;height:6px;border-radius:50%;background:oklch(0.8 0.13 15 / 0.6)"></div>
+    <sc-if value="{{happy}}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:45px;top:59px;width:7px;height:9px;border-radius:50%;background:#1d1a2e"></div>
+      <div style="position:absolute;left:68px;top:59px;width:7px;height:9px;border-radius:50%;background:#1d1a2e"></div>
+      <div style="position:absolute;left:54px;top:71px;width:12px;height:6px;border:2.5px solid #1d1a2e;border-top:0;border-radius:0 0 8px 8px"></div>
+    </sc-if>
+    <sc-if value="{{wow}}">
+      <div style="position:absolute;left:43px;top:57px;width:10px;height:12px;border-radius:50%;background:#1d1a2e"><div style="position:absolute;left:2px;top:2px;width:4px;height:4px;border-radius:50%;background:white"></div></div>
+      <div style="position:absolute;left:67px;top:57px;width:10px;height:12px;border-radius:50%;background:#1d1a2e"><div style="position:absolute;left:2px;top:2px;width:4px;height:4px;border-radius:50%;background:white"></div></div>
+      <div style="position:absolute;left:56px;top:73px;width:8px;height:9px;border-radius:50%;background:#1d1a2e"></div>
+    </sc-if>
+    <sc-if value="{{sleepy}}">
+      <div style="position:absolute;left:42px;top:61px;width:11px;height:6px;border:2.5px solid #1d1a2e;border-top:0;border-radius:0 0 7px 7px"></div>
+      <div style="position:absolute;left:67px;top:61px;width:11px;height:6px;border:2.5px solid #1d1a2e;border-top:0;border-radius:0 0 7px 7px"></div>
+      <div style="position:absolute;left:57px;top:74px;width:6px;height:3px;border-radius:3px;background:#1d1a2e"></div>
+    </sc-if>
+    <sc-if value="{{focus}}">
+      <div style="position:absolute;left:43px;top:63px;width:10px;height:2.5px;border-radius:2px;background:#1d1a2e"></div>
+      <div style="position:absolute;left:67px;top:63px;width:10px;height:2.5px;border-radius:2px;background:#1d1a2e"></div>
+      <div style="position:absolute;left:56px;top:71px;width:8px;height:4px;border:2.5px solid #1d1a2e;border-top:0;border-radius:0 0 6px 6px"></div>
+    </sc-if>
+  </div>
+  <sc-if value="{{star}}">
+    <div style="position:absolute;left:92px;top:8px;width:22px;height:22px;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);background:oklch(0.87 0.15 90);animation:tdTwinkle 2.4s ease-in-out infinite"></div>
+    <div style="position:absolute;left:6px;top:32px;width:11px;height:11px;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);background:oklch(0.87 0.15 90);animation:tdTwinkle 2.4s .8s ease-in-out infinite"></div>
+  </sc-if>
+  <sc-if value="{{moon}}">
+    <div style="position:absolute;left:4px;top:6px;width:26px;height:26px;border-radius:50%;box-shadow:7px 5px 0 0 oklch(0.9 0.1 95)"></div>
+    <div style="position:absolute;left:94px;top:14px;font:700 14px/1 'Bricolage Grotesque',sans-serif;color:var(--ink3);animation:tdTwinkle 3s ease-in-out infinite">z</div>
+    <div style="position:absolute;left:104px;top:2px;font:700 10px/1 'Bricolage Grotesque',sans-serif;color:var(--ink3);animation:tdTwinkle 3s 1s ease-in-out infinite">z</div>
+  </sc-if>
+  <sc-if value="{{sun}}">
+    <div style="position:absolute;left:88px;top:2px;width:26px;height:26px;border-radius:50%;background:oklch(0.87 0.15 80);box-shadow:0 0 0 6px oklch(0.87 0.15 80 / 0.22), 0 0 0 13px oklch(0.87 0.15 80 / 0.08)"></div>
+  </sc-if>
+  <sc-if value="{{sparkle}}">
+    <div style="position:absolute;left:94px;top:14px;width:15px;height:15px;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);background:oklch(0.9 0.12 90);animation:tdTwinkle 2s ease-in-out infinite"></div>
+    <div style="position:absolute;left:10px;top:22px;width:10px;height:10px;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);background:var(--a2);animation:tdTwinkle 2s .6s ease-in-out infinite"></div>
+    <div style="position:absolute;left:104px;top:62px;width:9px;height:9px;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);background:oklch(0.9 0.12 90);animation:tdTwinkle 2s 1.1s ease-in-out infinite"></div>
+  </sc-if>
+  <sc-if value="{{coffee}}">
+    <div style="position:absolute;left:92px;top:66px;width:3px;height:9px;border-radius:2px;background:var(--ink3);opacity:.5;animation:tdTwinkle 2s ease-in-out infinite"></div>
+    <div style="position:absolute;left:99px;top:63px;width:3px;height:11px;border-radius:2px;background:var(--ink3);opacity:.5;animation:tdTwinkle 2s .5s ease-in-out infinite"></div>
+    <div style="position:absolute;left:104px;top:82px;width:10px;height:10px;border:2.5px solid oklch(0.95 0.02 60);border-radius:50%"></div>
+    <div style="position:absolute;left:88px;top:78px;width:21px;height:18px;border-radius:3px 3px 9px 9px;background:oklch(0.95 0.02 60)"></div>
+  </sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:160,&quot;height&quot;:160},&quot;size&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:120,&quot;tsType&quot;:&quot;number&quot;},&quot;face&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;happy&quot;,&quot;wow&quot;,&quot;sleepy&quot;,&quot;focus&quot;],&quot;default&quot;:&quot;happy&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accessory&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;star&quot;,&quot;moon&quot;,&quot;sun&quot;,&quot;sparkle&quot;,&quot;coffee&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;float&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const size = this.props.size ?? 120, f = this.props.face ?? 'happy', a = this.props.accessory ?? 'none';
+    return {
+      box: size + 'px', scale: size / 120,
+      anim: (this.props.float ?? true) ? 'tdFloat 4s ease-in-out infinite' : 'none',
+      happy: f === 'happy', wow: f === 'wow', sleepy: f === 'sleepy', focus: f === 'focus',
+      star: a === 'star', moon: a === 'moon', sun: a === 'sun', sparkle: a === 'sparkle', coffee: a === 'coffee'
+    };
+  }
+}
+</script>
+</body>
+</html>
