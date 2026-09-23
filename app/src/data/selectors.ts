@@ -353,3 +353,20 @@ export function focusMinutesOn(sessions: Collections['focusSessions'], date = to
   }
   return { minutes: min, count };
 }
+
+/** Consecutive days (ending today or yesterday) with at least one completed focus session. */
+export function focusStreak(sessions: Collections['focusSessions'], today = todayKey()): number {
+  const days = new Set<string>();
+  for (const s of Object.values(sessions)) {
+    if (s.deleted || !s.completed || s.mode !== 'focus') continue;
+    const d = new Date(s.start);
+    days.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  let d = days.has(today) ? today : addDays(today, -1);
+  let n = 0;
+  while (days.has(d)) {
+    n++;
+    d = addDays(d, -1);
+  }
+  return n;
+}

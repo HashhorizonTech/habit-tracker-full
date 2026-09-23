@@ -29,7 +29,16 @@
       "expo-audio",
       "expo-secure-store",
       "expo-splash-screen",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/focus_bell.wav"
+          ],
+          "color": "#9f88ff"
+        }
+      ]
     ],
     "scheme": "tend",
     "backgroundColor": "#0d0b1a",

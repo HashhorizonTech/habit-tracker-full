@@ -14,6 +14,8 @@ import { ToastHost } from '@/components/overlay/ToastHost';
 import { useAuth } from '@/api/auth';
 import { startSync } from '@/api/sync';
 import { initSounds } from '@/audio/sounds';
+import { useFocusEngine } from '@/focus/engine';
+import { initNotifications } from '@/lib/notifications';
 import { useResponsive } from '@/lib/responsive';
 import { usePersistHydrated } from '@/lib/usePersistHydrated';
 import { useDataHydrated } from '@/store/data';
@@ -27,6 +29,7 @@ function Shell() {
   const blurTarget = useRef<View>(null);
   const user = useAuth((s) => s.user);
   const signedIn = !!user;
+  useFocusEngine();
   return (
     <RootBlurTarget.Provider value={blurTarget}>
       <StatusBar style={dark ? 'light' : 'dark'} />
@@ -74,6 +77,7 @@ export default function RootLayout() {
   const ready = fontsReady && dataReady && authReady;
   useEffect(() => {
     void initSounds();
+    void initNotifications();
   }, []);
   useEffect(() => {
     if (!ready) return;

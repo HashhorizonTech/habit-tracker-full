@@ -42,7 +42,7 @@ export const ICON_PATHS = {
   close: "M6 6l12 12M18 6 6 18",
   minus: "M5 12h14",
   play: "M8 5.5v13l10.5-6.5z",
-  pause: "M8 5v14M16 5v14",
+  pause: "M7 4h3.5v16H7zM13.5 4H17v16h-3.5z",
   reset: "M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4",
   skip: "M6 5l9 7-9 7zM18 5v14",
   more: "M5 12h.01M12 12h.01M19 12h.01",
@@ -55,4 +55,4 @@ export const ICON_PATHS = {
 export type IconName = keyof typeof ICON_PATHS;
 
 /** Icons drawn filled rather than stroked. */
-export const FILLED_ICONS: ReadonlySet<IconName> = new Set<IconName>(['flame', 'play']);
+export const FILLED_ICONS: ReadonlySet<IconName> = new Set<IconName>(['flame', 'play', 'pause']);

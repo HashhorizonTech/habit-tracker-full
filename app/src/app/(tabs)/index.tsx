@@ -22,6 +22,8 @@ import {
 } from '@/data/selectors';
 import { openCreateHabit } from '@/lib/actions';
 import { loadDemoData } from '@/lib/demo';
+import { quickFocus } from '@/focus/engine';
+import { presetValues, useFocus } from '@/store/focus';
 import { useResponsive } from '@/lib/responsive';
 import { levelInfo } from '@/lib/xp';
 import { useData } from '@/store/data';
@@ -69,6 +71,7 @@ export default function TodayScreen() {
   const t = useToday();
   const [refreshing, setRefreshing] = useState(false);
   const xp = levelInfo(profile.xp);
+  const focusMinutes = useFocus((s) => presetValues(s).focus);
   const name = profile.name || 'there';
 
   const onRefresh = async () => {
@@ -174,7 +177,15 @@ export default function TodayScreen() {
 
   const planSection = (
     <View style={{ gap: 22 }}>
-      <FocusCard minutes={25} taskTitle={t.firstUndoneTask} sessions={t.focus.count} onPress={() => router.navigate('/focus')} />
+      <FocusCard
+        minutes={focusMinutes}
+        taskTitle={t.firstUndoneTask}
+        sessions={t.focus.count}
+        onPress={() => {
+          quickFocus(t.upNext[0]?.id ?? null);
+          router.navigate('/focus');
+        }}
+      />
       <View>
         <View style={[styles.sectionHead, { marginBottom: 6 }]}>
           <Text variant="h2" accessibilityRole="header">Up next</Text>
