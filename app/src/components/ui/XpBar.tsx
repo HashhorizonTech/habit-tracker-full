@@ -3,18 +3,17 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { levelInfo } from '@/lib/xp';
+import { useData } from '@/store/data';
 import { useTheme } from '@/theme';
 import { easing } from '@/theme/motion';
 import { fonts } from '@/theme/tokens';
 import { Text } from './Text';
 
-// Placeholder until the data store lands in step 3 (Level 12 · 2,380 / 3,000).
-const DEMO_XP = 18_880;
-
 /** a2 → a1 XP bar that animates from its previous value (SPEC §4.11). */
-export function XpBar({ xp = DEMO_XP, compact }: { xp?: number; compact?: boolean }) {
+export function XpBar({ xp, compact }: { xp?: number; compact?: boolean }) {
   const { c } = useTheme();
-  const info = levelInfo(xp);
+  const profileXp = useData((s) => s.profile.xp);
+  const info = levelInfo(xp ?? profileXp);
   const [w, setW] = useState(0);
   const p = useSharedValue(0);
   useEffect(() => {

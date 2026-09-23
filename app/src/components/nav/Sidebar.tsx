@@ -52,7 +52,7 @@ export function Sidebar() {
       <View style={[styles.levelCard, { backgroundColor: c.surface, borderColor: c.line }]}>
         <XpBar compact />
       </View>
-      <Button label="New habit" icon="plus" size="md" onPress={openCreateHabit} />
+      <Button label="New habit" icon="plus" size="md" onPress={() => openCreateHabit()} />
     </Animated.View>
   );
 }

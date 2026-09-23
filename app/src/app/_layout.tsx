@@ -11,7 +11,12 @@ import { RootBlurTarget } from '@/components/overlay/Backdrop';
 import { ModalHost } from '@/components/overlay/ModalHost';
 import { SheetHost } from '@/components/overlay/SheetHost';
 import { ToastHost } from '@/components/overlay/ToastHost';
+import { useAuth } from '@/api/auth';
+import { startSync } from '@/api/sync';
+import { initSounds } from '@/audio/sounds';
 import { useResponsive } from '@/lib/responsive';
+import { usePersistHydrated } from '@/lib/usePersistHydrated';
+import { useDataHydrated } from '@/store/data';
 import { ThemeProvider, useTendFonts, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -20,11 +25,13 @@ function Shell() {
   const { dark, c } = useTheme();
   const { isDesktop } = useResponsive();
   const blurTarget = useRef<View>(null);
+  const user = useAuth((s) => s.user);
+  const signedIn = !!user;
   return (
     <RootBlurTarget.Provider value={blurTarget}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <BlurTargetView ref={blurTarget} style={[styles.row, { backgroundColor: c.page }]}>
-        {isDesktop && <Sidebar />}
+        {isDesktop && signedIn && <Sidebar />}
         <View style={styles.fill}>
           <Stack
             screenOptions={{
@@ -34,7 +41,23 @@ function Shell() {
               animation: isDesktop ? 'none' : 'fade',
               animationDuration: 350,
             }}
-          />
+          >
+            <Stack.Protected guard={signedIn}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="tasks" />
+              <Stack.Screen name="calendar" />
+              <Stack.Screen name="achievements" />
+              <Stack.Screen name="summary" />
+              <Stack.Screen name="settings" />
+              <Stack.Screen name="themes" />
+              <Stack.Screen name="notifications" />
+              <Stack.Screen name="habit/[id]" />
+              <Stack.Screen name="dev/design-system" />
+            </Stack.Protected>
+            <Stack.Protected guard={!signedIn}>
+              <Stack.Screen name="sign-in" />
+            </Stack.Protected>
+          </Stack>
         </View>
       </BlurTargetView>
       <SheetHost />
@@ -46,10 +69,18 @@ function Shell() {
 
 export default function RootLayout() {
   const fontsReady = useTendFonts();
+  const dataReady = useDataHydrated();
+  const authReady = usePersistHydrated(useAuth.persist);
+  const ready = fontsReady && dataReady && authReady;
   useEffect(() => {
-    if (fontsReady) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsReady]);
-  if (!fontsReady) return null;
+    void initSounds();
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    SplashScreen.hideAsync().catch(() => {});
+    startSync();
+  }, [ready]);
+  if (!ready) return null;
   return (
     <GestureHandlerRootView style={styles.fill}>
       <SafeAreaProvider>

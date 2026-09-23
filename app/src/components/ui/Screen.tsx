@@ -18,13 +18,15 @@ export interface ScreenProps {
   contentStyle?: StyleProp<ViewStyle>;
   /** Pinned below the scroll area (e.g. "Check in" sticky CTA). */
   footer?: ReactNode;
+  /** Turned off while a list row is being dragged. */
+  scrollEnabled?: boolean;
 }
 
 /**
  * Page wrapper: themed background + glows, safe areas, responsive gutters and max width,
  * and the page-enter animation (fade + 12px slide-up, 400 ms) each time the screen gains focus.
  */
-export function Screen({ children, tab, scroll = true, refreshControl, contentStyle, footer }: ScreenProps) {
+export function Screen({ children, tab, scroll = true, refreshControl, contentStyle, footer, scrollEnabled = true }: ScreenProps) {
   const { reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const { pad, isDesktop } = useResponsive();
@@ -64,6 +66,7 @@ export function Screen({ children, tab, scroll = true, refreshControl, contentSt
           <ScrollView
             contentContainerStyle={inner}
             refreshControl={refreshControl}
+            scrollEnabled={scrollEnabled}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
