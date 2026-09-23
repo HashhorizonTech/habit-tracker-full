@@ -110,3 +110,10 @@ export function alpha(color: string, a: number): string {
   const c = parse(color);
   return c ? formatRgb({ ...c, alpha: a }) : color;
 }
+
+/** Split a colour into an opaque hex + opacity — SVG stops ignore alpha inside rgba(). */
+export function splitAlpha(color: string): { color: string; opacity: number } {
+  const c = parse(color);
+  if (!c) return { color, opacity: 1 };
+  return { color: formatHex({ ...c, alpha: undefined }), opacity: c.alpha ?? 1 };
+}

@@ -21,12 +21,11 @@ export function useLoop(period: number, { delay = 0, enabled = true } = {}): Sha
   useEffect(() => {
     if (!on) {
       cancelAnimation(t);
-      t.value = 0;
+      t.set(0);
       return;
     }
-    t.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: period / 2, easing: easing.inOut }), -1, true),
+    t.set(
+      withDelay(delay, withRepeat(withTiming(1, { duration: period / 2, easing: easing.inOut }), -1, true)),
     );
     return () => cancelAnimation(t);
   }, [on, period, delay, t]);
@@ -41,11 +40,11 @@ export function useLinearLoop(period: number, { enabled = true } = {}): SharedVa
   useEffect(() => {
     if (!on) {
       cancelAnimation(t);
-      t.value = 0;
+      t.set(0);
       return;
     }
-    t.value = 0;
-    t.value = withRepeat(withTiming(1, { duration: period, easing: easing.linear }), -1, false);
+    t.set(0);
+    t.set(withRepeat(withTiming(1, { duration: period, easing: easing.linear }), -1, false));
     return () => cancelAnimation(t);
   }, [on, period, t]);
   return t;

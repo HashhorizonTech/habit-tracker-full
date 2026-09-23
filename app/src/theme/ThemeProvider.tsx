@@ -37,11 +37,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (last.current === palette.colors) return;
-    from.value = last.current;
-    to.value = palette.colors;
+    from.set(last.current);
+    to.set(palette.colors);
     last.current = palette.colors;
-    progress.value = 0;
-    progress.value = withTiming(1, { duration: duration.theme, easing: easing.inOut });
+    progress.set(0);
+    progress.set(withTiming(1, { duration: duration.theme, easing: easing.inOut }));
   }, [palette.colors, from, to, progress]);
 
   const value = useMemo<ThemeContextValue>(

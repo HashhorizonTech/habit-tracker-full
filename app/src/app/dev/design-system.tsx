@@ -93,7 +93,7 @@ export default function DesignSystem() {
         <Section title="Type scale">
           <Text variant="display">Display 44</Text>
           <Text variant="h1">Good morning, Ravi</Text>
-          <Text variant="h2">Today's habits</Text>
+          <Text variant="h2">{"Today's habits"}</Text>
           <Text variant="subhead">Subhead 17 / 600</Text>
           <Text>Body 15 — A calm place for the small things that make a big difference.</Text>
           <Text variant="caption" color="ink3">Wednesday · September 23</Text>

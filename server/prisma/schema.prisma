@@ -1,0 +1,190 @@
+// Portable across SQLite (dev) and Postgres: no enums, no native JSON columns,
+// no SQLite-only attributes. JSON-shaped fields are stored as TEXT holding JSON
+// and (de)serialised in src/sync/collections.ts.
+//
+// Epoch-millisecond timestamps are `Float` (a double on both engines), which
+// round-trips any JS number exactly without BigInt conversion.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    Float
+  /// Per-user monotonically increasing revision; bumped once per accepted sync write.
+  rev          Int      @default(0)
+
+  refreshTokens RefreshToken[]
+  profile       Profile?
+  habits        Habit[]
+  habitLogs     HabitLog[]
+  tasks         Task[]
+  focusSessions FocusSession[]
+  moodLogs      MoodLog[]
+  badges        BadgeState[]
+}
+
+model RefreshToken {
+  id         String  @id
+  userId     String
+  /// Tokens issued by rotation from the same login share a family.
+  familyId   String
+  /// SHA-256 of the opaque token; the raw token is never stored.
+  tokenHash  String  @unique
+  createdAt  Float
+  expiresAt  Float
+  revokedAt  Float?
+  replacedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model Profile {
+  userId            String  @id
+  name              String
+  xp                Float
+  themeId           String
+  mode              String
+  prefs             String
+  notificationPrefs String
+  streakProtection  String
+  onboardedAt       Float?
+  updatedAt         Float
+  rev               Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, rev])
+}
+
+model Habit {
+  userId    String
+  id        String
+  name      String
+  icon      String
+  hue       Float
+  category  String
+  frequency String
+  goal      Float
+  unit      String
+  step      Float
+  timeOfDay String
+  reminder  String?
+  notes     String?
+  createdAt Float
+  order     Float
+  updatedAt Float
+  deleted   Boolean
+  rev       Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, rev])
+}
+
+model HabitLog {
+  userId      String
+  id          String
+  habitId     String
+  date        String
+  count       Float
+  completedAt Float?
+  updatedAt   Float
+  deleted     Boolean
+  rev         Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, rev])
+}
+
+model Task {
+  userId        String
+  id            String
+  title         String
+  due           String?
+  time          String?
+  priority      String
+  done          Boolean
+  doneAt        Float?
+  habitId       String?
+  focusSessions Float
+  list          String
+  createdAt     Float
+  updatedAt     Float
+  deleted       Boolean
+  rev           Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, rev])
+}
+
+model FocusSession {
+  userId    String
+  id        String
+  start     Float
+  end       Float
+  mode      String
+  minutes   Float
+  taskId    String?
+  completed Boolean
+  updatedAt Float
+  deleted   Boolean
+  rev       Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, rev])
+}
+
+model MoodLog {
+  userId    String
+  id        String
+  date      String
+  mood      String
+  tags      String
+  note      String?
+  loggedAt  Float
+  updatedAt Float
+  deleted   Boolean
+  rev       Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, rev])
+}
+
+model BadgeState {
+  userId     String
+  id         String
+  unlockedAt Float?
+  progress   Float
+  updatedAt  Float
+  deleted    Boolean
+  rev        Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, rev])
+}
