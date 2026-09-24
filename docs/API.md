@@ -76,3 +76,93 @@ Profile      { name, xp, themeId, mode: 'light'|'dark'|'system', prefs: object, 
 ## Export
 `GET /v1/export?format=json` → the full dataset (all collections, excluding tombstones) as a JSON attachment.
 `GET /v1/export?format=csv` → a `text/csv` attachment. One CSV with a `type` column (habit / log / task / focus / mood) and a flat set of columns.
+
+---
+
+# v1.1 — Plus, billing and admin
+
+## Plus (entitlements)
+
+An **entitlement** grants Plus for a period. A user is Plus when at least one entitlement
+has `status` in (`active`, `grace`) and (`expiresAt` is null or in the future).
+
+```ts
+Entitlement {
+  id: string;
+  userId: string;
+  source: 'play_subscription' | 'play_lifetime' | 'admin' | 'trial';
+  productId: string | null;        // 'plus' (subscription) | 'plus_lifetime' | null
+  basePlanId: string | null;       // 'monthly' | 'yearly' | null
+  status: 'active' | 'grace' | 'on_hold' | 'paused' | 'canceled' | 'expired' | 'revoked' | 'refunded';
+  startsAt: number;                // ms
+  expiresAt: number | null;        // ms; null = lifetime
+  autoRenew: boolean;
+  note: string | null;             // admin note ("beta tester")
+  grantedBy: string | null;        // admin user id for source 'admin'
+  createdAt: number; updatedAt: number;
+}
+
+PlusStatus {
+  active: boolean;
+  source: Entitlement['source'] | null;   // of the entitlement that grants it (latest expiry wins; lifetime beats all)
+  expiresAt: number | null;
+  autoRenew: boolean;
+  productId: string | null;
+  basePlanId: string | null;
+}
+```
+
+- `GET /v1/me` → `{ user, profile, plus: PlusStatus }`; `user` gains `role: 'user' | 'admin'`.
+- `GET /v1/plus` → `PlusStatus`.
+
+## Google Play Billing
+
+Product IDs (Play Console): subscription **`plus`** with base plans **`monthly`** and **`yearly`**
+(yearly has a 7-day free-trial offer); one-time product **`plus_lifetime`**.
+
+`POST /v1/billing/google/verify`
+```jsonc
+{ "productId": "plus" | "plus_lifetime", "purchaseToken": "…", "type": "subscription" | "inapp" }
+```
+→ `200 PlusStatus`. The server verifies the token with the Google Play Developer API
+(`purchases.subscriptionsv2.get` / `purchases.products.get`), acknowledges it if needed,
+and upserts the entitlement (keyed by `purchaseToken`).
+Errors: `400 INVALID_PURCHASE` (Google says invalid / not purchased), `409 PURCHASE_OWNED_ELSEWHERE`
+(token already linked to another account), `503 BILLING_NOT_CONFIGURED` (no Google credentials).
+
+**Dev fake mode:** when the server env `BILLING_FAKE=true`, tokens starting with `fake:` are
+accepted without calling Google — format `fake:<monthly|yearly|lifetime>:<random>` (each token is a
+separate purchase; monthly/yearly get 30/365-day expiries, yearly adds no trial), so the whole
+flow can be tested before a Play account exists. Never enable in production.
+
+`POST /v1/billing/google/rtdn?token=<RTDN_SECRET>` — Google Cloud Pub/Sub **push** endpoint for
+Real-time developer notifications. Body `{ message: { data: base64(json) } }`. The server re-fetches
+the subscription from Google and updates the entitlement (renewed, canceled, on hold, grace,
+expired, revoked, refunded via `voidedPurchaseNotification`). Always `204` once processed (or ignorable).
+
+## Admin API (`/v1/admin/*`, requires `role: 'admin'`, else `403 FORBIDDEN`)
+
+Admins sign in with the normal `/v1/auth/login`. Disabled users get `403 ACCOUNT_DISABLED` on
+login, refresh and every authenticated route.
+
+| Route | Result |
+|---|---|
+| `GET /v1/admin/stats` | `{ users: { total, new7d, new30d, active7d, disabled }, plus: { active, bySource: {…}, byPlan: { monthly, yearly, lifetime, admin, trial } }, revenue: { monthlyEstimateInr }, signupsByDay: {date,count}[30], activeByDay: {date,count}[30] }` |
+| `GET /v1/admin/users?query=&plan=all\|plus\|free&status=all\|active\|disabled&page=1&pageSize=25` | `{ items: AdminUserRow[], total, page, pageSize }` |
+| `GET /v1/admin/users/:id` | `{ user: AdminUserRow, profile: { xp, level, themeId } \| null, counts: { habits, habitLogs, tasks, focusSessions, moodLogs }, entitlements: Entitlement[] }` |
+| `POST /v1/admin/users/:id/grant` `{ months?: 1..24, days?: 1..366, lifetime?: boolean, note?: string }` | `201 Entitlement` (source `admin`; starts at the current Plus expiry if still active, else now) |
+| `POST /v1/admin/entitlements/:id/revoke` `{ note?: string }` | `200 Entitlement` (status `revoked`) |
+| `POST /v1/admin/users/:id/disable` / `…/enable` | `200 AdminUserRow` (disable also revokes refresh tokens) |
+| `DELETE /v1/admin/users/:id` | `204` (all data) |
+| `GET /v1/admin/subscriptions?status=all\|active\|canceled\|expired\|revoked\|refunded&source=all\|play\|admin\|trial&page&pageSize` | `{ items: (Entitlement & { userEmail })[], total, page, pageSize }` |
+| `GET /v1/admin/audit?page&pageSize` | `{ items: { id, adminEmail, action, targetUserId, targetEmail, details, createdAt }[], total, page, pageSize }` |
+
+```ts
+AdminUserRow { id, email, name, role, createdAt, lastSyncAt: number | null, disabledAt: number | null, habitCount, plus: PlusStatus }
+```
+Every admin write is recorded in the audit log. The first admin is created with the server CLI:
+`npm run admin:create -- you@company.com` (promotes an existing account, or creates one and prints a
+temporary password).
+
+Revenue estimate uses env prices `PRICE_MONTHLY_INR` (99), `PRICE_YEARLY_INR` (699),
+`PRICE_LIFETIME_INR` (1999): monthly + yearly/12 for active Play subscriptions.

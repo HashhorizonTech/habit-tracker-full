@@ -127,5 +127,7 @@ const styles = StyleSheet.create({
   },
   pill: { position: 'absolute', top: 8, bottom: 8, left: 0, borderRadius: 19 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  label: { fontFamily: fonts.body700, fontSize: 10.5, letterSpacing: 0.1 },
+  // Tight line height (the body variant's 21px would leave a gap under the label and push the
+  // icon up, making the active pill's top and bottom padding unequal).
+  label: { fontFamily: fonts.body700, fontSize: 10.5, lineHeight: 13, letterSpacing: 0.1, includeFontPadding: false },
 });
