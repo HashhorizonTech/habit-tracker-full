@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { useData } from '@/store/data';
+import { COLLECTION_KEYS, useData } from '@/store/data';
 import { ApiError, api, publicApi, setSignedOutHandler } from './client';
 import { tokens } from './tokens';
 
@@ -26,18 +26,28 @@ interface AuthState {
   deleteAccount: () => Promise<void>;
 }
 
-/** Local data belongs to one account; switching accounts starts from that account's server copy. */
-function adoptLocalData(user: User) {
+/** True when this device holds anything the user created (habits, logs, tasks…). */
+function hasLocalData() {
+  const d = useData.getState();
+  return COLLECTION_KEYS.some((k) => Object.keys(d[k]).length > 0) || d.profile.updatedAt > 0;
+}
+
+/**
+ * Local data belongs to one account. Signing in on an empty device only downloads
+ * (never pushes a blank profile over the server's). Data created before signing in
+ * (e.g. during onboarding) is claimed and uploaded. Another account's data is replaced.
+ */
+function adoptLocalData(user: User, isNewAccount: boolean) {
   const data = useData.getState();
   if (data.ownerId === user.id) return;
-  if (data.ownerId === null) {
-    // First sign-in on this device: upload whatever was created before signing in.
+  if (data.ownerId === null && hasLocalData()) {
     data.claim(user.id);
-    if (!data.profile.name) data.updateProfile({ name: user.name });
-  } else {
-    data.replaceAll(user.id);
-    useData.getState().updateProfile({ name: user.name });
+    if (!useData.getState().profile.name) useData.getState().updateProfile({ name: user.name });
+    return;
   }
+  data.replaceAll(user.id);
+  // A brand-new account has no server profile yet; seed it with the name.
+  if (isNewAccount) useData.getState().updateProfile({ name: user.name });
 }
 
 export const useAuth = create<AuthState>()(
@@ -47,13 +57,13 @@ export const useAuth = create<AuthState>()(
       signIn: async (email, password) => {
         const r = await publicApi<AuthResponse>('/v1/auth/login', { method: 'POST', json: { email, password } });
         await tokens.set(r.accessToken, r.refreshToken);
-        adoptLocalData(r.user);
+        adoptLocalData(r.user, false);
         set({ user: r.user });
       },
       signUp: async (name, email, password) => {
         const r = await publicApi<AuthResponse>('/v1/auth/register', { method: 'POST', json: { name, email, password } });
         await tokens.set(r.accessToken, r.refreshToken);
-        adoptLocalData(r.user);
+        adoptLocalData(r.user, true);
         set({ user: r.user });
       },
       signOut: async () => {

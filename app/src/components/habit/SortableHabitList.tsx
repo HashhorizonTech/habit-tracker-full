@@ -44,6 +44,7 @@ function Row({
   const { c, habit } = useTheme();
   const id = item.habit.id;
   const col = habit(item.habit.hue);
+  const bg = c.bg;
   const done = item.count >= item.habit.goal;
   const top = useSharedValue(index * height);
   const dragging = useSharedValue(false);
@@ -111,17 +112,19 @@ function Row({
     zIndex: dragging.value ? 10 : 0,
     transform: [{ scale: 1 + 0.02 * lift.value }],
     shadowOpacity: 0.35 * lift.value,
+    // Opaque only while lifted, so the screen glow shows through at rest.
+    backgroundColor: lift.value > 0.01 ? bg : 'transparent',
   }));
   const content = useAnimatedStyle(() => ({ transform: [{ translateX: swipeX.value }] }));
   const reveal = useAnimatedStyle(() => ({ opacity: Math.min(1, swipeX.value / SWIPE_DONE), transform: [{ scale: swipeX.value > SWIPE_DONE ? 1.15 : 1 }] }));
 
   return (
-    <Animated.View style={[styles.row, { height, shadowColor: '#000', backgroundColor: c.bg }, rowStyle]}>
+    <Animated.View style={[styles.row, { height, shadowColor: '#000', borderRadius: 18 }, rowStyle]}>
       <Animated.View style={[styles.reveal, { backgroundColor: col.soft }, reveal]} pointerEvents="none">
         <Icon name="check" size={22} color={col.text} strokeWidth={2.6} />
       </Animated.View>
       <GestureDetector gesture={Gesture.Race(drag, swipe)}>
-        <Animated.View style={[{ backgroundColor: c.bg }, content]}>
+        <Animated.View style={content}>
           <HabitListRow item={item} />
         </Animated.View>
       </GestureDetector>

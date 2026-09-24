@@ -76,9 +76,12 @@ export const BarChart = memo(function BarChart({
       {labels && (
         <View style={[styles.labels, { gap }]}>
           {values.map((_, i) => (
-            <Text key={i} variant="small" color="ink3" align="center" numberOfLines={1} style={styles.label}>
-              {labels[i] ?? ''}
-            </Text>
+            // Labels may be wider than their bar (e.g. "12p"); they overflow the slot, centred.
+            <View key={i} style={styles.labelSlot}>
+              <Text variant="small" color="ink3" align="center" numberOfLines={1} style={styles.label}>
+                {labels[i] ?? ''}
+              </Text>
+            </View>
           ))}
         </View>
       )}
@@ -137,5 +140,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-end' },
   slot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   labels: { flexDirection: 'row', marginTop: 6 },
-  label: { flex: 1, fontSize: 11.5, lineHeight: 15, fontFamily: fonts.body600 },
+  labelSlot: { flex: 1, alignItems: 'center' },
+  label: { width: 44, fontSize: 11.5, lineHeight: 15, fontFamily: fonts.body600 },
 });

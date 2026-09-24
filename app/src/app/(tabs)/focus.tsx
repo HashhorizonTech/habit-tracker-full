@@ -162,7 +162,7 @@ export default function FocusScreen() {
         {calm && <Ambience ringCenterY={ringY} />}
         <Calm calm={calm} style={styles.header}>
           <Text variant="h1" accessibilityRole="header">Focus</Text>
-          <PressableScale onPress={() => router.navigate('/insights')} style={[styles.pill, { backgroundColor: c.surface, borderColor: c.line }]} accessibilityLabel="Focus insights">
+          <PressableScale onPress={() => router.navigate({ pathname: '/insights', params: { tab: 'focus' } })} style={[styles.pill, { backgroundColor: c.surface, borderColor: c.line }]} accessibilityLabel="Focus insights">
             <Icon name="stats" size={16} color={c.ink} />
             <Text style={{ fontFamily: fonts.body700, fontSize: 13.5 }}>Insights</Text>
           </PressableScale>

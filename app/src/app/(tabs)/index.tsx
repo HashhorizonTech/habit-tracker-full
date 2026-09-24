@@ -142,7 +142,7 @@ export default function TodayScreen() {
             value={formatMinutes(t.focus.minutes)}
             label="focused today"
             hint="Opens focus insights"
-            onPress={() => router.navigate('/insights')}
+            onPress={() => router.navigate({ pathname: '/insights', params: { tab: 'focus' } })}
           />
           <StatRow
             icon={<Icon name="tasks" size={19} color={c.ink} />}
