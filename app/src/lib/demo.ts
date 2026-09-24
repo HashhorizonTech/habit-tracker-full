@@ -22,6 +22,10 @@ export function loadDemoData() {
     (merged as unknown as Record<string, unknown>)[key] = col;
   }
   s.replaceAll(s.ownerId, merged);
-  if (s.ownerId) useData.getState().claim(s.ownerId);
+  if (s.ownerId) {
+    useData.getState().claim(s.ownerId);
+    // Demo replaces the profile deliberately, so push it (claim alone never does).
+    useData.getState().updateProfile({});
+  }
   toast('Demo data loaded', 'sparkle');
 }

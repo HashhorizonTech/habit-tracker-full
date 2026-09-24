@@ -29,7 +29,7 @@ interface AuthState {
 /** True when this device holds anything the user created (habits, logs, tasks…). */
 function hasLocalData() {
   const d = useData.getState();
-  return COLLECTION_KEYS.some((k) => Object.keys(d[k]).length > 0) || d.profile.updatedAt > 0;
+  return COLLECTION_KEYS.some((k) => Object.keys(d[k]).length > 0);
 }
 
 /**

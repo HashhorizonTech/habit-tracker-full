@@ -296,8 +296,9 @@ export const useData = create<DataState>()(
           set((s) => {
             const dirty = emptyDirty();
             for (const key of COLLECTION_KEYS) for (const r of Object.values(s[key]) as AnyRecord[]) dirty[key][r.id] = r.updatedAt;
-            const profile = { ...s.profile, updatedAt: Math.max(1, s.profile.updatedAt) };
-            return { ownerId, dirty, profile, profileDirty: profile.updatedAt, syncCursor: 0 };
+            // The profile is not pushed here: an existing account's server profile (XP,
+            // level, prefs) must win. It is pushed on the next deliberate profile edit.
+            return { ownerId, dirty, profileDirty: null, syncCursor: 0, lastSyncedAt: null };
           });
         },
       };

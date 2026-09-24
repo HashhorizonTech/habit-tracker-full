@@ -38,7 +38,8 @@
           ],
           "color": "#9f88ff"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "scheme": "tend",
     "backgroundColor": "#0d0b1a",

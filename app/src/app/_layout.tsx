@@ -13,6 +13,8 @@ import { SheetHost } from '@/components/overlay/SheetHost';
 import { ToastHost } from '@/components/overlay/ToastHost';
 import { useAuth } from '@/api/auth';
 import { startSync, useSync } from '@/api/sync';
+import { startPrefsSync } from '@/lib/prefsSync';
+import { useReminderSync } from '@/lib/reminders';
 import { applyStreakProtection } from '@/lib/streakProtection';
 import { initSounds } from '@/audio/sounds';
 import { useFocusEngine } from '@/focus/engine';
@@ -31,6 +33,7 @@ function Shell() {
   const user = useAuth((s) => s.user);
   const signedIn = !!user;
   useFocusEngine();
+  useReminderSync();
   return (
     <RootBlurTarget.Provider value={blurTarget}>
       <StatusBar style={dark ? 'light' : 'dark'} />
@@ -84,6 +87,7 @@ export default function RootLayout() {
     if (!ready) return;
     SplashScreen.hideAsync().catch(() => {});
     startSync();
+    startPrefsSync();
     applyStreakProtection();
     const app = AppState.addEventListener('change', (st) => st === 'active' && applyStreakProtection());
     // Remote changes (e.g. check-ins from another device) can change which days need cover.

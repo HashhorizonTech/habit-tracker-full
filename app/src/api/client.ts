@@ -19,8 +19,8 @@ export class ApiError extends Error {
 
 type Json = Record<string, unknown> | unknown[];
 
-async function raw<T>(path: string, init: RequestInit & { json?: Json; auth?: string | null; timeoutMs?: number } = {}): Promise<T> {
-  const { json, auth, timeoutMs = 15_000, ...rest } = init;
+async function raw<T>(path: string, init: RequestInit & { json?: Json; auth?: string | null; timeoutMs?: number; raw?: boolean } = {}): Promise<T> {
+  const { json, auth, timeoutMs = 15_000, raw: asText, ...rest } = init;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
@@ -42,7 +42,13 @@ async function raw<T>(path: string, init: RequestInit & { json?: Json; auth?: st
   }
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  const body = text ? JSON.parse(text) : undefined;
+  if (res.ok && asText) return text as T;
+  let body: { error?: { code?: string; message?: string } } | undefined;
+  try {
+    body = text ? JSON.parse(text) : undefined;
+  } catch {
+    body = undefined;
+  }
   if (!res.ok) {
     const err = body?.error ?? {};
     throw new ApiError(res.status, err.code ?? `HTTP_${res.status}`, err.message ?? res.statusText);
@@ -82,7 +88,7 @@ export const setSignedOutHandler = (fn: () => void) => {
 };
 
 /** Authenticated request with one transparent refresh-and-retry on 401. */
-export async function api<T>(path: string, init: RequestInit & { json?: Json } = {}): Promise<T> {
+export async function api<T>(path: string, init: RequestInit & { json?: Json; raw?: boolean } = {}): Promise<T> {
   let access = tokens.getAccess();
   if (!access) access = await refreshAccess();
   if (!access) throw new ApiError(401, 'UNAUTHORIZED', 'Not signed in');
