@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/Text';
 import { haptic } from '@/lib/haptics';
 import { useUI } from '@/store/ui';
 import { alpha, useTheme } from '@/theme';
-import { spring } from '@/theme/motion';
+import { settle, spring } from '@/theme/motion';
 import { fonts, layout } from '@/theme/tokens';
 import { TABS, type NavItem } from './routes';
 
@@ -34,7 +34,10 @@ function TabButton({ item, active, onPress }: { item: NavItem; active: boolean; 
       <Animated.View style={iconStyle}>
         <Icon name={item.icon} size={22} color={fg} />
       </Animated.View>
-      <Text style={[styles.label, { color: fg }]}>{item.label}</Text>
+      {/* The bar has a fixed height, so labels grow less than body text (icons carry meaning). */}
+      <Text style={[styles.label, { color: fg }]} maxFontSizeMultiplier={1.12} numberOfLines={1} adjustsFontSizeToFit>
+        {item.label}
+      </Text>
     </Pressable>
   );
 }
@@ -62,10 +65,10 @@ export function TabBar({ blurTarget }: { blurTarget: RefObject<View | null> }) {
   const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   const hide = useAnimatedStyle(
     () => ({
-      opacity: withTiming(calm ? 0 : 1, { duration: calm ? 350 : 500 }),
-      transform: [{ translateY: withTiming(calm ? (height + bottom) * 1.5 : 0, { duration: 500 }) }],
+      opacity: settle(calm ? 0 : 1, { duration: calm ? 350 : 500 }, reduceMotion),
+      transform: [{ translateY: settle(calm ? (height + bottom) * 1.5 : 0, { duration: 500 }, reduceMotion) }],
     }),
-    [calm],
+    [calm, reduceMotion],
   );
 
   return (

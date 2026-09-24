@@ -1,5 +1,5 @@
 // Motion spec — SPEC §5. Every animation in the app should pull timings from here.
-import { Easing, type WithSpringConfig } from 'react-native-reanimated';
+import { Easing, withTiming, type WithSpringConfig, type WithTimingConfig } from 'react-native-reanimated';
 
 export const easing = {
   /** Main easing, cubic-bezier(.2,.8,.2,1). */
@@ -54,3 +54,13 @@ export const spring = {
 } as const;
 
 export const pressScale = { default: 0.96, icon: 0.9 } as const;
+
+/**
+ * `withTiming` that jumps straight to the target under Reduce Motion. Android's
+ * "Remove animations" can leave in-flight timings unfinished, so state changes that
+ * must land (fading chrome away, hiding the tab bar) never depend on an animation.
+ */
+export function settle(target: number, config: WithTimingConfig, reduceMotion: boolean) {
+  'worklet';
+  return reduceMotion ? target : withTiming(target, config);
+}

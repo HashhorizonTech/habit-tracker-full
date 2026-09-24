@@ -33,16 +33,19 @@ function hasLocalData() {
 }
 
 /**
- * Local data belongs to one account. Signing in on an empty device only downloads
- * (never pushes a blank profile over the server's). Data created before signing in
- * (e.g. during onboarding) is claimed and uploaded. Another account's data is replaced.
+ * Local data belongs to one account.
+ * - Sign up (new account): anything created before signing in (the onboarding habit)
+ *   is claimed and uploaded.
+ * - Sign in (existing account): the account is restored as-is from the server; the
+ *   device's anonymous starter data is dropped so a returning user never gets
+ *   duplicate habits from replaying onboarding on a new phone.
  */
 function adoptLocalData(user: User, isNewAccount: boolean) {
   const data = useData.getState();
   if (data.ownerId === user.id) return;
-  if (data.ownerId === null && hasLocalData()) {
+  if (isNewAccount && data.ownerId === null && hasLocalData()) {
     data.claim(user.id);
-    if (!useData.getState().profile.name) useData.getState().updateProfile({ name: user.name });
+    useData.getState().updateProfile({ name: useData.getState().profile.name || user.name });
     return;
   }
   data.replaceAll(user.id);

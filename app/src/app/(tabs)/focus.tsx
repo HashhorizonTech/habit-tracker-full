@@ -17,7 +17,7 @@ import { useData } from '@/store/data';
 import { modeTotal, PRESETS, presetValues, useFocus } from '@/store/focus';
 import { useUI } from '@/store/ui';
 import { useTheme } from '@/theme';
-import { duration, spring } from '@/theme/motion';
+import { duration, settle, spring } from '@/theme/motion';
 import { fonts, space } from '@/theme/tokens';
 
 const MODES: { value: FocusMode; label: string }[] = [
@@ -28,7 +28,8 @@ const MODES: { value: FocusMode; label: string }[] = [
 
 /** Header, mode switch, presets and footer fade out while calm (600 ms). */
 function Calm({ calm, children, style }: { calm: boolean; children: React.ReactNode; style?: object }) {
-  const s = useAnimatedStyle(() => ({ opacity: withTiming(calm ? 0 : 1, { duration: duration.calmFade }) }), [calm]);
+  const { reduceMotion } = useTheme();
+  const s = useAnimatedStyle(() => ({ opacity: settle(calm ? 0 : 1, { duration: duration.calmFade }, reduceMotion) }), [calm, reduceMotion]);
   return (
     <Animated.View style={[style, s]} pointerEvents={calm ? 'none' : 'auto'} collapsable={false}>
       {children}

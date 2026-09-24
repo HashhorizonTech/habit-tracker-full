@@ -63,6 +63,9 @@ function Shell() {
               <Stack.Screen name="themes" />
               <Stack.Screen name="notifications" />
               <Stack.Screen name="habit/[id]" />
+            </Stack.Protected>
+            {/* Design-system review screen: development builds only. */}
+            <Stack.Protected guard={__DEV__ && signedIn}>
               <Stack.Screen name="dev/design-system" />
             </Stack.Protected>
             {/* New device: welcome flow first; signed-in users can replay it from Settings. */}

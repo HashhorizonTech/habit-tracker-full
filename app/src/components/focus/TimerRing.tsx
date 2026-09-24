@@ -76,7 +76,7 @@ function Digits({ status, total, label, statusText }: { status: TimerStatus; tot
  * shrinks linearly on the UI thread, and a glowing knob riding the end of the arc.
  */
 export function TimerRing({ total, label, statusText, onPress, onLongPress }: { total: number; label: string; statusText: string; onPress: () => void; onLongPress?: () => void }) {
-  const { c } = useTheme();
+  const { c, reduceMotion } = useTheme();
   const id = useSvgId('ring');
   const status = useFocus((s) => s.status);
   const endAt = useFocus((s) => s.endAt);
@@ -85,11 +85,18 @@ export function TimerRing({ total, label, statusText, onPress, onLongPress }: { 
 
   useEffect(() => {
     cancelAnimation(frac);
-    const rem = remainingMs(useFocus.getState());
-    const f = Math.max(0, Math.min(1, rem / Math.max(1, total)));
-    frac.set(f);
-    if (status === 'running') frac.set(withTiming(0, { duration: rem, easing: Easing.linear }));
-  }, [status, endAt, paused, total, frac]);
+    const current = () => Math.max(0, Math.min(1, remainingMs(useFocus.getState()) / Math.max(1, total)));
+    frac.set(current());
+    if (status !== 'running') return;
+    if (!reduceMotion) {
+      // One linear animation to empty, driven on the UI thread.
+      frac.set(withTiming(0, { duration: remainingMs(useFocus.getState()), easing: Easing.linear }));
+      return;
+    }
+    // Reduce Motion: step once a second instead of animating.
+    const id = setInterval(() => frac.set(current()), 1000);
+    return () => clearInterval(id);
+  }, [status, endAt, paused, total, frac, reduceMotion]);
 
   const ringProps = useAnimatedProps(() => ({ strokeDashoffset: RC * (1 - frac.value) }));
   const knob = useAnimatedStyle(() => ({ transform: [{ rotate: `${360 * frac.value}deg` }] }));

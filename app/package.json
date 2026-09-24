@@ -54,7 +54,8 @@
     "gen:themes": "node scripts/gen-themes.mjs",
     "gen:sounds": "node scripts/gen-sounds.mjs",
     "gen:icons": "node scripts/gen-icons.mjs",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "check:demo": "npx --yes tsx --tsconfig tsconfig.json scripts/check-demo.ts"
   },
   "private": true
 }

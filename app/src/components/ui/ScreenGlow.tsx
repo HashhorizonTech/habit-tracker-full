@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { settle } from '@/theme/motion';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { useSvgId } from '@/lib/useSvgId';
 import { splitAlpha, useTheme } from '@/theme';
@@ -12,12 +13,12 @@ import { useUI } from '@/store/ui';
  * Fades out during immersive focus.
  */
 export const ScreenGlow = memo(function ScreenGlow({ width, height }: { width: number; height: number }) {
-  const { c } = useTheme();
+  const { c, reduceMotion } = useTheme();
   const calm = useUI((s) => s.calm);
   const id = useSvgId('glow');
   const a = splitAlpha(c.a1soft);
   const b = splitAlpha(c.a2soft);
-  const style = useAnimatedStyle(() => ({ opacity: withTiming(calm ? 0 : 1, { duration: 800 }) }), [calm]);
+  const style = useAnimatedStyle(() => ({ opacity: settle(calm ? 0 : 1, { duration: 800 }, reduceMotion) }), [calm, reduceMotion]);
   return (
     <Animated.View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
       <Svg width={width} height={height}>

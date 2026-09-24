@@ -50,7 +50,8 @@
           "color": "#9f88ff"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "./plugins/withLocalCleartext"
     ],
     "scheme": "tend",
     "backgroundColor": "#0a0d21",
