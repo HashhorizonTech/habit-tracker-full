@@ -11,6 +11,7 @@ import { Text } from '@/components/ui/Text';
 import { formatMinutes, todayKey } from '@/data/dates';
 import { focusMinutesOn, focusStreak } from '@/data/selectors';
 import type { FocusMode } from '@/data/types';
+import { checkBadges } from '@/lib/checkIn';
 import { haptic } from '@/lib/haptics';
 import { cancel, scheduleAt } from '@/lib/notifications';
 import { useData } from '@/store/data';
@@ -172,6 +173,7 @@ function FocusCompleteModal({ minutes, close }: { minutes: number; close: () => 
         onPress={() => {
           if (!autoBreak) startBreak();
           close();
+          setTimeout(checkBadges, 400);
         }}
         style={{ alignSelf: 'stretch', height: 52, borderRadius: 17 }}
       />
@@ -182,6 +184,7 @@ function FocusCompleteModal({ minutes, close }: { minutes: number; close: () => 
         onPress={() => {
           if (autoBreak) resetTimer();
           close();
+          setTimeout(checkBadges, 400);
         }}
         style={{ alignSelf: 'stretch' }}
       />

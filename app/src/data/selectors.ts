@@ -116,7 +116,7 @@ export function habitDayScore(habits: Habit[], logs: Logs, date: string): number
 }
 
 /** A day counts toward the overall streak when more than half of its habits are done. */
-const dayCounts = (habits: Habit[], logs: Logs, date: string) => {
+export const dayCounts = (habits: Habit[], logs: Logs, date: string) => {
   const list = habits.filter((h) => scheduledOn(h, date));
   if (!list.length) return null;
   return list.filter((h) => doneOn(logs, h, date)).length / list.length > 0.5;
@@ -155,8 +155,19 @@ export function overallStreak(habits: Habit[], logs: Logs, opts: StreakOpts = {}
   const today = opts.today ?? todayKey();
   const runs = dayRuns(habits, logs, opts);
   const last = runs[runs.length - 1];
-  // The current run must reach today or yesterday (today may still be in progress).
-  const current = last && daysBetween(last.end, today) <= 1 ? last.length : 0;
+  // The current run must reach today or yesterday (today may still be in progress);
+  // protected rest days and days with nothing scheduled in between don't cut it off.
+  const rest = new Set(opts.restDays ?? []);
+  let alive = !!last;
+  if (last) {
+    for (let d = addDays(last.end, 1); daysBetween(d, today) > 0; d = addDays(d, 1)) {
+      if (!rest.has(d) && dayCounts(habits, logs, d) !== null) {
+        alive = false;
+        break;
+      }
+    }
+  }
+  const current = alive && last ? last.length : 0;
   const longest = runs.reduce((m, r) => Math.max(m, r.length), 0);
   return { current, longest, runs };
 }

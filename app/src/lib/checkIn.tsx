@@ -1,39 +1,31 @@
-// Habit check-in feedback (SPEC §4.3): sound, haptic, toast, XP and the Perfect Day moment.
-import { View } from 'react-native';
+// Habit check-in feedback (SPEC §4.3): sound, haptic, toast, XP, badges and the Perfect Day moment.
 import { playSound } from '@/audio/sounds';
-import { Mascot } from '@/components/illustration';
-import { Button } from '@/components/ui/Button';
-import { Text } from '@/components/ui/Text';
 import { useData, type StepResult } from '@/store/data';
-import { toast, useUI } from '@/store/ui';
+import { toast } from '@/store/ui';
+import { celebrateUnlocks, evaluateBadges, openBadgeModal } from './badges';
 import { haptic } from './haptics';
 
-function celebrateLevel(level: number) {
+/** Level-up moment: sound + toast, after the triggering feedback settles. */
+export function levelUpToast(level: number) {
   setTimeout(() => {
     playSound('levelUp');
     toast(`Level ${level} · keep growing`, 'star');
   }, 1200);
 }
 
-/** "Perfect Day" unlock (full achievement modal arrives with Achievements in step 6). */
-function celebratePerfectDay() {
-  const s = useData.getState();
-  if (!s.badges.perfect?.unlockedAt) s.setBadge('perfect', { unlockedAt: Date.now(), progress: 6 });
-  playSound('perfectDay');
-  haptic.success();
-  useUI.getState().openModal(
-    (close) => (
-      <View style={{ alignItems: 'center', gap: 10, alignSelf: 'stretch' }}>
-        <Mascot size={120} face="wow" accessory="star" />
-        <Text variant="caption" color="a1text">Achievement unlocked</Text>
-        <Text variant="h1" align="center">Perfect Day</Text>
-        <Text color="ink2" align="center">Finish every habit in one day</Text>
-        <Button label="Nice!" onPress={close} style={{ alignSelf: 'stretch', marginTop: 6 }} />
-      </View>
-    ),
-    'Perfect Day unlocked',
-    { burst: true },
-  );
+/** Check badge progress after an action and celebrate anything newly unlocked. */
+function checkBadges(opts: { perfectDay?: boolean } = {}) {
+  const ids = evaluateBadges();
+  if (opts.perfectDay) {
+    // Completing every habit always gets the Perfect Day moment (SPEC §4.3).
+    playSound('perfectDay');
+    haptic.success();
+    openBadgeModal('perfect');
+    const rest = ids.filter((id) => id !== 'perfect');
+    if (rest.length) setTimeout(() => celebrateUnlocks(rest), 2600);
+    return;
+  }
+  celebrateUnlocks(ids);
 }
 
 function feedback(name: string, r: StepResult) {
@@ -41,7 +33,7 @@ function feedback(name: string, r: StepResult) {
     playSound('complete');
     haptic.light();
     toast(`${name} complete · +10 XP`, 'sparkle');
-    if (r.allDone) setTimeout(celebratePerfectDay, 900);
+    setTimeout(() => checkBadges({ perfectDay: r.allDone }), 900);
   } else if (r.undone) {
     playSound('undo');
     haptic.selection();
@@ -49,7 +41,7 @@ function feedback(name: string, r: StepResult) {
     playSound('tick');
     haptic.selection();
   }
-  if (r.leveledUp) celebrateLevel(r.leveledUp);
+  if (r.leveledUp) levelUpToast(r.leveledUp);
 }
 
 /** One tap on a habit's check button: +1 step, or undo one step when complete. */
@@ -76,9 +68,12 @@ export function toggleTaskDone(taskId: string) {
     playSound('pop');
     haptic.light();
     toast('Nice — task done · +5 XP', 'check');
+    setTimeout(() => checkBadges(), 900);
   } else {
     haptic.selection();
   }
-  if (r.leveledUp) celebrateLevel(r.leveledUp);
+  if (r.leveledUp) levelUpToast(r.leveledUp);
   return r.done;
 }
+
+export { checkBadges };

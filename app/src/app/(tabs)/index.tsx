@@ -20,14 +20,13 @@ import { formatMinutes, greeting, longDate, todayKey } from '@/data/dates';
 import {
   countOn, dayPercent, focusMinutesOn, habitStreak, habitsForDay, liveHabits, liveList, overallStreak, progressOn, tasksForDay,
 } from '@/data/selectors';
-import { openCreateHabit } from '@/lib/actions';
+import { openCreateHabit, openMood, openStreak } from '@/lib/actions';
 import { loadDemoData } from '@/lib/demo';
 import { quickFocus } from '@/focus/engine';
 import { presetValues, useFocus } from '@/store/focus';
 import { useResponsive } from '@/lib/responsive';
 import { levelInfo } from '@/lib/xp';
 import { useData } from '@/store/data';
-import { toast } from '@/store/ui';
 import { useTheme } from '@/theme';
 import { fonts, space } from '@/theme/tokens';
 
@@ -134,7 +133,7 @@ export default function TodayScreen() {
             value={`${t.streak} ${t.streak === 1 ? 'day' : 'days'}`}
             label="current streak"
             hint="Opens streak details"
-            onPress={() => toast('Streak details arrive in step 6', 'flame')}
+            onPress={openStreak}
           />
           <StatRow
             icon={<Icon name="focus" size={19} color={c.a1text} />}
@@ -154,7 +153,7 @@ export default function TodayScreen() {
           />
         </View>
       </View>
-      <MoodStrip today={t.mood} onPick={() => toast('Mood check-in arrives in step 6', 'heart')} />
+      <MoodStrip today={t.mood} onPick={openMood} />
     </View>
   );
 

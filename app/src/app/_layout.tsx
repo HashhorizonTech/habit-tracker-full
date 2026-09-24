@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Sidebar } from '@/components/nav/Sidebar';
@@ -12,7 +12,8 @@ import { ModalHost } from '@/components/overlay/ModalHost';
 import { SheetHost } from '@/components/overlay/SheetHost';
 import { ToastHost } from '@/components/overlay/ToastHost';
 import { useAuth } from '@/api/auth';
-import { startSync } from '@/api/sync';
+import { startSync, useSync } from '@/api/sync';
+import { applyStreakProtection } from '@/lib/streakProtection';
 import { initSounds } from '@/audio/sounds';
 import { useFocusEngine } from '@/focus/engine';
 import { initNotifications } from '@/lib/notifications';
@@ -83,6 +84,14 @@ export default function RootLayout() {
     if (!ready) return;
     SplashScreen.hideAsync().catch(() => {});
     startSync();
+    applyStreakProtection();
+    const app = AppState.addEventListener('change', (st) => st === 'active' && applyStreakProtection());
+    // Remote changes (e.g. check-ins from another device) can change which days need cover.
+    const sync = useSync.subscribe((s, prev) => s.status === 'idle' && prev.status === 'syncing' && applyStreakProtection());
+    return () => {
+      app.remove();
+      sync();
+    };
   }, [ready]);
   if (!ready) return null;
   return (
