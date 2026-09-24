@@ -6,8 +6,10 @@ import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { addDays, daysBetween, startOfWeek, todayKey } from '@/data/dates';
 import { dayCounts, liveHabits, overallStreak } from '@/data/selectors';
+import { restDaysFor } from '@/lib/plusFeatures';
 import { applyStreakProtection, restDaysLeft } from '@/lib/streakProtection';
 import { useData } from '@/store/data';
+import { usePlus } from '@/store/plus';
 import { usePrefs } from '@/store/prefs';
 import { alpha, useTheme } from '@/theme';
 import { fonts } from '@/theme/tokens';
@@ -22,6 +24,7 @@ export function StreakSheet() {
   const sp = useData((s) => s.profile.streakProtection);
   const updateProfile = useData((s) => s.updateProfile);
   const weekStart = usePrefs((s) => s.weekStart);
+  const { active: plus } = usePlus();
 
   const { current, longest, cells, protectedShown } = useMemo(() => {
     const today = todayKey();
@@ -43,7 +46,7 @@ export function StreakSheet() {
     return { current: st.current, longest: st.longest, cells, protectedShown: cells.some((x) => x.state === 'rest') };
   }, [habitsMap, logs, sp.restDays, weekStart]);
 
-  const left = restDaysLeft(sp.restDays);
+  const left = restDaysLeft(sp.restDays, todayKey(), restDaysFor(plus));
   const bg: Record<CellState, string> = {
     streak: fixed.flame,
     good: alpha(fixed.flame, 0.3),

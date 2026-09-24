@@ -12,18 +12,28 @@ import { Text } from '@/components/ui/Text';
 import { todayKey } from '@/data/dates';
 import { focusInsights, habitInsights, RANGES, type Range } from '@/data/insights';
 import { liveHabits } from '@/data/selectors';
+import { isRangeLocked, openPaywall } from '@/lib/plusFeatures';
 import { useResponsive } from '@/lib/responsive';
 import { useData } from '@/store/data';
+import { usePlus } from '@/store/plus';
 
 type Tab = 'habits' | 'focus';
 
-const RANGE_OPTIONS = RANGES.map((r) => ({ value: r, label: r }));
 
 export default function InsightsScreen() {
   const params = useLocalSearchParams<{ tab?: Tab }>();
   const { columns } = useResponsive();
   const [tab, setTab] = useState<Tab>(params.tab === 'focus' ? 'focus' : 'habits');
-  const [range, setRange] = useState<Range>('7D');
+  const [picked, setRange] = useState<Range>('7D');
+  const { active: plus } = usePlus();
+  // A range picked while on Plus falls back to 7D if Plus ends.
+  const range: Range = isRangeLocked(picked, plus) ? '7D' : picked;
+  const rangeOptions = useMemo(() => RANGES.map((r) => ({ value: r, label: r, locked: isRangeLocked(r, plus) })), [plus]);
+  const onRange = (r: Range) => {
+    // Longer ranges open Plus and stay on 7D.
+    if (isRangeLocked(r, plus)) openPaywall('insights');
+    else setRange(r);
+  };
 
   // The tab stays mounted, so a later `/insights?tab=focus` link has to switch tabs here.
   const [seenParam, setSeenParam] = useState(params.tab);
@@ -87,11 +97,11 @@ export default function InsightsScreen() {
             <Chip label="Habits" selected={tab === 'habits'} onPress={() => setTab('habits')} />
             <Chip label="Focus" selected={tab === 'focus'} onPress={() => setTab('focus')} />
           </View>
-          <Segmented options={RANGE_OPTIONS} value={range} onChange={setRange} size="sm" label="Date range" style={styles.range} />
+          <Segmented options={rangeOptions} value={range} onChange={onRange} size="sm" label="Date range" style={styles.range} />
         </View>
       </View>
       <DataGate>
-      {habitData && <HabitsTab data={habitData} range={range} animateKey={animateKey} wide={wide} />}
+      {habitData && <HabitsTab data={habitData} range={range} animateKey={animateKey} wide={wide} moodLocked={!plus} />}
       {focusData && <FocusTab data={focusData} range={range} animateKey={animateKey} wide={wide} />}
       </DataGate>
     </Screen>

@@ -27,8 +27,9 @@ describe("GET /v1/me", () => {
     const res = await ctx.app.inject({ method: "GET", url: "/v1/me", headers: bearer(session) });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      user: { id: session.userId, email: "me@example.com", name: "Test", createdAt: expect.any(Number) },
+      user: { id: session.userId, email: "me@example.com", name: "Test", createdAt: expect.any(Number), role: "user" },
       profile: null,
+      plus: { active: false, source: null, expiresAt: null, autoRenew: false, productId: null, basePlanId: null },
     });
   });
 });

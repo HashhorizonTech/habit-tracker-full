@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { COLLECTION_KEYS, useData } from '@/store/data';
-import { ApiError, api, publicApi, setSignedOutHandler } from './client';
+import { toast } from '@/store/ui';
+import { ApiError, api, publicApi, setAccountDisabledHandler, setSignedOutHandler } from './client';
 import { tokens } from './tokens';
 
 export interface User {
@@ -10,6 +11,7 @@ export interface User {
   email: string;
   name: string;
   createdAt: string | number;
+  role?: 'user' | 'admin';
 }
 
 interface AuthResponse {
@@ -90,6 +92,13 @@ export const useAuth = create<AuthState>()(
 // A revoked session drops back to signed-out but keeps local data (nothing is lost).
 setSignedOutHandler(() => useAuth.setState({ user: null }));
 
+// An admin disabled this account: sign out locally (tokens are already cleared).
+setAccountDisabledHandler(() => {
+  if (!useAuth.getState().user) return;
+  useAuth.setState({ user: null });
+  toast('This account has been disabled. Contact support.', 'shield');
+});
+
 /** Human copy for auth errors (no guilt, no jargon). */
 export function authMessage(e: unknown): string {
   if (!(e instanceof ApiError)) return 'Something went wrong. Please try again.';
@@ -102,6 +111,8 @@ export function authMessage(e: unknown): string {
       return 'Too many tries. Take a breath and try again in a minute.';
     case 'VALIDATION_ERROR':
       return 'Check your email, and use a password of at least 8 characters.';
+    case 'ACCOUNT_DISABLED':
+      return 'This account has been disabled. Contact support.';
     case 'NET_OFFLINE':
       return "We couldn't reach Tend just now. Check your connection.";
     default:

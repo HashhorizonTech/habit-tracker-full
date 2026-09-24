@@ -5,8 +5,10 @@ import { Screen } from '@/components/ui/Screen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Segmented } from '@/components/ui/Segmented';
 import { haptic } from '@/lib/haptics';
+import { isThemeLocked, openPaywall } from '@/lib/plusFeatures';
 import { useResponsive } from '@/lib/responsive';
 import { useAppearance } from '@/store/appearance';
+import { isPlusNow, usePlus } from '@/store/plus';
 import { THEME_IDS, useTheme } from '@/theme';
 import type { ThemeId } from '@/theme/palette';
 
@@ -23,6 +25,7 @@ export default function ThemesScreen() {
   const themeId = useAppearance((s) => s.themeId);
   const setTheme = useAppearance((s) => s.setTheme);
   const [measured, setMeasured] = useState(0);
+  const { active: plus } = usePlus();
 
   const width = measured || Math.min(MAX_WIDTH, contentWidth);
   const columns = Math.min(4, Math.max(2, Math.floor((width + GAP) / (MIN_TILE + GAP))));
@@ -31,6 +34,11 @@ export default function ThemesScreen() {
   const onSelect = useCallback(
     (id: ThemeId) => {
       if (id === useAppearance.getState().themeId) return;
+      // Locked themes open Plus and never switch the theme.
+      if (isThemeLocked(id, isPlusNow())) {
+        openPaywall('themes');
+        return;
+      }
       haptic.selection();
       setTheme(id);
     },
@@ -49,7 +57,7 @@ export default function ThemesScreen() {
           accessibilityLabel="Color theme"
         >
           {THEME_IDS.map((id) => (
-            <ThemeTile key={id} id={id} dark={dark} selected={id === themeId} onSelect={onSelect} width={tileWidth} />
+            <ThemeTile key={id} id={id} dark={dark} selected={id === themeId} onSelect={onSelect} width={tileWidth} locked={isThemeLocked(id, plus)} />
           ))}
         </View>
       </View>

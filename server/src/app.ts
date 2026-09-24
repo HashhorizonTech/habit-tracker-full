@@ -1,11 +1,14 @@
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import type { Env } from "./env.js";
+import { createGooglePlayApi, type GooglePlayApi } from "./billing/google.js";
+import { BILLING_ENV_DEFAULTS, type BillingEnv, type Env } from "./env.js";
 import { authPlugin } from "./lib/auth.js";
 import { createDb, type Db } from "./lib/db.js";
 import { AppError, errorBody } from "./lib/errors.js";
+import { adminRoutes } from "./routes/admin.js";
 import { authRoutes, type AuthRouteOptions } from "./routes/auth.js";
+import { billingRoutes } from "./routes/billing.js";
 import { exportRoutes } from "./routes/export.js";
 import { healthRoutes } from "./routes/health.js";
 import { meRoutes } from "./routes/me.js";
@@ -18,14 +21,31 @@ declare module "fastify" {
 }
 
 export interface BuildAppOptions {
-  env: Pick<Env, "DATABASE_URL" | "JWT_SECRET" | "CORS_ORIGIN">;
+  env: Pick<Env, "DATABASE_URL" | "JWT_SECRET" | "CORS_ORIGIN"> & Partial<BillingEnv>;
   logger?: FastifyServerOptions["logger"];
   /** Limit for login/register per IP. Defaults to the contract's 10/min. */
   authRateLimit?: AuthRouteOptions["rateLimit"];
+  /**
+   * Google Play API client. Defaults to a real client when
+   * GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is set, else none (verify → 503). Tests inject a fake.
+   */
+  googlePlay?: GooglePlayApi | null;
 }
 
-export async function buildApp({ env, logger = false, authRateLimit }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ env, logger = false, authRateLimit, googlePlay }: BuildAppOptions): Promise<FastifyInstance> {
+  const billingEnv: BillingEnv = { ...BILLING_ENV_DEFAULTS, ...definedOnly(env) };
+  if (billingEnv.BILLING_FAKE && billingEnv.NODE_ENV === "production") {
+    throw new Error("BILLING_FAKE=true is not allowed when NODE_ENV=production");
+  }
+  const google =
+    googlePlay !== undefined
+      ? googlePlay
+      : billingEnv.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+        ? createGooglePlayApi(billingEnv.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON)
+        : null;
+
   const app = Fastify({ logger });
+  if (billingEnv.BILLING_FAKE) app.log.warn("BILLING_FAKE is on: fake:<plan>:<id> purchase tokens are accepted");
 
   const db = createDb(env.DATABASE_URL);
   app.decorate("db", db);
@@ -45,13 +65,26 @@ export async function buildApp({ env, logger = false, authRateLimit }: BuildAppO
     return reply.code(status).send(errorBody(code, err instanceof Error ? err.message : "Bad request"));
   });
 
+  // Like Fastify's JSON parser, but an empty body with a JSON content type is treated as no
+  // body (browsers' fetch wrappers often send `Content-Type: application/json` on bodiless POSTs).
+  const jsonParser = app.getDefaultJsonParser("error", "error");
+  app.removeContentTypeParser("application/json");
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
+    const text = typeof body === "string" ? body : body.toString("utf8");
+    if (text.trim() === "") return done(null, undefined);
+    jsonParser(request, text, done);
+  });
+
   app.setNotFoundHandler((request, reply) =>
     reply.code(404).send(errorBody("NOT_FOUND", `Route ${request.method} ${request.url} not found`)),
   );
 
   await app.register(cors, {
-    origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN.split(",").map((o) => o.trim()),
+    origin: parseCorsOrigin(env.CORS_ORIGIN),
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type"],
+    exposedHeaders: ["Content-Disposition"],
+    maxAge: 600,
   });
   await app.register(rateLimit, {
     global: false,
@@ -65,6 +98,27 @@ export async function buildApp({ env, logger = false, authRateLimit }: BuildAppO
   await app.register(meRoutes);
   await app.register(syncRoutes);
   await app.register(exportRoutes);
+  await app.register(billingRoutes, {
+    deps: { google, packageName: billingEnv.GOOGLE_PLAY_PACKAGE_NAME, fake: billingEnv.BILLING_FAKE },
+    rtdnSecret: billingEnv.GOOGLE_RTDN_SECRET,
+  });
+  await app.register(adminRoutes, {
+    prices: {
+      PRICE_MONTHLY_INR: billingEnv.PRICE_MONTHLY_INR,
+      PRICE_YEARLY_INR: billingEnv.PRICE_YEARLY_INR,
+      PRICE_LIFETIME_INR: billingEnv.PRICE_LIFETIME_INR,
+    },
+  });
 
   return app;
+}
+
+/** `*` reflects any origin; otherwise a comma-separated allow-list (e.g. the admin panel's origin). */
+export function parseCorsOrigin(value: string): true | string[] {
+  const origins = value.split(",").map((o) => o.trim()).filter(Boolean);
+  return origins.length === 0 || origins.includes("*") ? true : origins;
+}
+
+function definedOnly<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }

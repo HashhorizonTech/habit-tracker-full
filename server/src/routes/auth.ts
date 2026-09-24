@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { isUniqueViolation } from "../lib/db.js";
-import { AppError } from "../lib/errors.js";
+import { AppError, accountDisabled } from "../lib/errors.js";
 import { hashPassword, verifyAgainstDummy, verifyPassword } from "../lib/password.js";
 import { createRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../lib/sessions.js";
 import { now } from "../lib/time.js";
@@ -48,6 +48,8 @@ export async function authRoutes(app: FastifyInstance, { rateLimit }: AuthRouteO
     const user = await app.db.user.findUnique({ where: { email: body.email } });
     const valid = user ? await verifyPassword(user.passwordHash, body.password) : await verifyAgainstDummy(body.password);
     if (!user || !valid) throw new AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect");
+    // Only revealed to someone who knows the password.
+    if (user.disabledAt !== null) throw accountDisabled();
     return { user: toPublicUser(user), ...(await issueSession(user.id)) };
   });
 

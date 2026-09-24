@@ -84,7 +84,9 @@ Profile      { name, xp, themeId, mode: 'light'|'dark'|'system', prefs: object, 
 ## Plus (entitlements)
 
 An **entitlement** grants Plus for a period. A user is Plus when at least one entitlement
-has `status` in (`active`, `grace`) and (`expiresAt` is null or in the future).
+has `status` in (`active`, `grace`, `canceled`) and (`expiresAt` is null or in the future).
+(`canceled` = auto-renew turned off: Plus continues until the paid period ends. `revoked` and
+`refunded` are final and never re-activated by later Google data.)
 
 ```ts
 Entitlement {
@@ -127,8 +129,9 @@ Product IDs (Play Console): subscription **`plus`** with base plans **`monthly`*
 → `200 PlusStatus`. The server verifies the token with the Google Play Developer API
 (`purchases.subscriptionsv2.get` / `purchases.products.get`), acknowledges it if needed,
 and upserts the entitlement (keyed by `purchaseToken`).
-Errors: `400 INVALID_PURCHASE` (Google says invalid / not purchased), `409 PURCHASE_OWNED_ELSEWHERE`
-(token already linked to another account), `503 BILLING_NOT_CONFIGURED` (no Google credentials).
+Errors: `400 INVALID_PURCHASE` (Google says invalid / not purchased / pending), `409 PURCHASE_OWNED_ELSEWHERE`
+(token already linked to another account), `503 BILLING_NOT_CONFIGURED` (no Google credentials),
+`502 BILLING_UPSTREAM_ERROR` (Google failed; safe to retry — the entitlement may already be saved).
 
 **Dev fake mode:** when the server env `BILLING_FAKE=true`, tokens starting with `fake:` are
 accepted without calling Google — format `fake:<monthly|yearly|lifetime>:<random>` (each token is a

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Icon } from '@/components/icons/Icon';
 import { haptic } from '@/lib/haptics';
 import { useTheme } from '@/theme';
 import { spring } from '@/theme/motion';
@@ -8,7 +9,8 @@ import { fonts } from '@/theme/tokens';
 import { Text } from './Text';
 
 export interface SegmentedProps<T extends string> {
-  options: { value: T; label: string; count?: number }[];
+  /** `locked` options (part of Plus) show a small sparkle after the label. */
+  options: { value: T; label: string; count?: number; locked?: boolean }[];
   value: T;
   onChange: (v: T) => void;
   size?: 'md' | 'sm';
@@ -64,12 +66,16 @@ export function Segmented<T extends string>({ options, value, onChange, size = '
             }}
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
+            accessibilityLabel={o.locked ? `${o.label}, Plus` : undefined}
             style={[styles.item, scroll && styles.itemScroll, { height: h }]}
           >
-            <Text style={{ fontFamily: fonts.body700, fontSize: size === 'md' ? 15 : 13.5, color: on ? c.bg : c.ink2 }} numberOfLines={1}>
-              {o.label}
-              {o.count != null && <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: on ? c.bg : c.ink3 }}>{`  ${o.count}`}</Text>}
-            </Text>
+            <View style={styles.labelRow}>
+              <Text style={{ fontFamily: fonts.body700, fontSize: size === 'md' ? 15 : 13.5, color: on ? c.bg : c.ink2 }} numberOfLines={1}>
+                {o.label}
+                {o.count != null && <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, color: on ? c.bg : c.ink3 }}>{`  ${o.count}`}</Text>}
+              </Text>
+              {o.locked && <Icon name="sparkle" size={11} color={on ? c.bg : c.a1text} strokeWidth={2.4} />}
+            </View>
           </Pressable>
         );
       })}
@@ -91,6 +97,7 @@ const styles = StyleSheet.create({
   track: { flexDirection: 'row', padding: 4 },
   pill: { position: 'absolute', top: 4, left: 4 },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   trackScroll: { flexGrow: 1 },
   itemScroll: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto', paddingHorizontal: 13 },
 });

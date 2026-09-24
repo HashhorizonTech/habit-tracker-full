@@ -19,3 +19,9 @@ export const errorBody = (code: string, message: string, details?: Record<string
 });
 
 export const unauthorized = (message = "Authentication required") => new AppError(401, "UNAUTHORIZED", message);
+
+export const forbidden = (message = "Admin access required") => new AppError(403, "FORBIDDEN", message);
+
+export const accountDisabled = () => new AppError(403, "ACCOUNT_DISABLED", "This account has been disabled");
+
+export const notFound = (message = "Not found") => new AppError(404, "NOT_FOUND", message);

@@ -72,6 +72,7 @@ function refreshAccess(): Promise<string | null> {
         await tokens.clear();
         onSignedOut?.();
       }
+      if (isDisabled(e)) await accountDisabled();
       if (e instanceof ApiError && e.offline) throw e;
       return null;
     }
@@ -87,6 +88,19 @@ export const setSignedOutHandler = (fn: () => void) => {
   onSignedOut = fn;
 };
 
+let onAccountDisabled: (() => void) | null = null;
+/** Called when the server reports `403 ACCOUNT_DISABLED` on any authenticated call. */
+export const setAccountDisabledHandler = (fn: () => void) => {
+  onAccountDisabled = fn;
+};
+
+const isDisabled = (e: unknown) => e instanceof ApiError && e.status === 403 && e.code === 'ACCOUNT_DISABLED';
+
+async function accountDisabled() {
+  await tokens.clear();
+  onAccountDisabled?.();
+}
+
 /** Authenticated request with one transparent refresh-and-retry on 401. */
 export async function api<T>(path: string, init: RequestInit & { json?: Json; raw?: boolean } = {}): Promise<T> {
   let access = tokens.getAccess();
@@ -95,10 +109,16 @@ export async function api<T>(path: string, init: RequestInit & { json?: Json; ra
   try {
     return await raw<T>(path, { ...init, auth: access });
   } catch (e) {
+    if (isDisabled(e)) await accountDisabled();
     if (!(e instanceof ApiError) || e.status !== 401) throw e;
     const next = await refreshAccess();
     if (!next) throw e;
-    return raw<T>(path, { ...init, auth: next });
+    try {
+      return await raw<T>(path, { ...init, auth: next });
+    } catch (e2) {
+      if (isDisabled(e2)) await accountDisabled();
+      throw e2;
+    }
   }
 }
 

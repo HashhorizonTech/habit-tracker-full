@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, w
 import { Ambience } from '@/components/focus/Ambience';
 import { TimerRing } from '@/components/focus/TimerRing';
 import { Icon } from '@/components/icons/Icon';
+import { PlusPill } from '@/components/plus/PlusPill';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
@@ -13,7 +14,9 @@ import { formatMinutes, todayKey } from '@/data/dates';
 import { focusMinutesOn, focusStreak, liveList } from '@/data/selectors';
 import type { FocusMode } from '@/data/types';
 import { devFinishSoon, FOCUS_LABEL, resetTimer, setTimerMode, skipTimer, toggleTimer } from '@/focus/engine';
+import { isPresetLocked, openPaywall } from '@/lib/plusFeatures';
 import { useData } from '@/store/data';
+import { usePlus } from '@/store/plus';
 import { modeTotal, PRESETS, presetValues, useFocus } from '@/store/focus';
 import { useUI } from '@/store/ui';
 import { useTheme } from '@/theme';
@@ -68,16 +71,17 @@ function RoundButton({ icon, label, onPress, size, accent, spin }: { icon: 'rese
   );
 }
 
-function PresetCard({ name, value, on, onPress }: { name: string; value: string; on: boolean; onPress: () => void }) {
+function PresetCard({ name, value, on, onPress, locked }: { name: string; value: string; on: boolean; onPress: () => void; locked?: boolean }) {
   const { c } = useTheme();
   return (
     <PressableScale
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected: on }}
-      accessibilityLabel={`${name} preset, ${value} minutes`}
+      accessibilityLabel={`${name} preset, ${value} minutes${locked ? ', Plus' : ''}`}
       style={[styles.preset, { borderColor: on ? c.a1 : c.line, backgroundColor: on ? c.a1 : 'transparent' }]}
     >
+      {locked && <PlusPill size="sm" style={styles.presetPill} />}
       <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: on ? c.a1ink : c.ink2 }}>{name}</Text>
       <Text style={{ fontFamily: fonts.body500, fontSize: 12, color: on ? c.a1ink : c.ink2, opacity: 0.85 }} tabular>{value}</Text>
     </PressableScale>
@@ -110,6 +114,7 @@ export default function FocusScreen() {
   const tasksMap = useData((s) => s.tasks);
   const sessions = useData((s) => s.focusSessions);
   const setCalm = useUI((s) => s.setCalm);
+  const { active: plus } = usePlus();
   const [immersive, setImmersive] = useState(false);
   const [ringY, setRingY] = useState(360);
 
@@ -145,6 +150,11 @@ export default function FocusScreen() {
         : 'Take a breath';
 
   const choosePreset = (i: number) => {
+    // Deep, Flow and Custom are part of Plus.
+    if (isPresetLocked(i, plus)) {
+      openPaywall('focus');
+      return;
+    }
     if (i === f.preset && f.status !== 'idle') return;
     resetTimer();
     if (i === 3) f.setCustom(f.customFocus, f.customBreak);
@@ -204,9 +214,9 @@ export default function FocusScreen() {
           <Text variant="caption" color="ink3" align="center" style={{ fontSize: 11 }}>Presets · focus / break</Text>
           <View style={styles.presets} accessibilityRole="radiogroup">
             {PRESETS.map((p, i) => (
-              <PresetCard key={p.name} name={p.name} value={`${p.focus} / ${p.short}`} on={f.preset === i} onPress={() => choosePreset(i)} />
+              <PresetCard key={p.name} name={p.name} value={`${p.focus} / ${p.short}`} on={f.preset === i} onPress={() => choosePreset(i)} locked={isPresetLocked(i, plus)} />
             ))}
-            <PresetCard name="Custom" value={`${f.customFocus} / ${f.customBreak}`} on={f.preset === 3} onPress={() => choosePreset(3)} />
+            <PresetCard name="Custom" value={`${f.customFocus} / ${f.customBreak}`} on={f.preset === 3} onPress={() => choosePreset(3)} locked={isPresetLocked(3, plus)} />
           </View>
           {f.preset === 3 && (
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -258,6 +268,7 @@ const styles = StyleSheet.create({
   bottom: { width: '100%', maxWidth: 420, gap: space[3] },
   presets: { flexDirection: 'row', gap: 8 },
   preset: { flex: 1, alignItems: 'center', gap: 1, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 16, borderWidth: 1 },
+  presetPill: { position: 'absolute', top: -9, alignSelf: 'center' },
   custom: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, paddingRight: 6, paddingLeft: 14, borderRadius: 16, borderWidth: 1 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTopWidth: 1 },
 });

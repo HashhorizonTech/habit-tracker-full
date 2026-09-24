@@ -51,7 +51,9 @@
         }
       ],
       "expo-sharing",
-      "./plugins/withLocalCleartext"
+      "./plugins/withLocalCleartext",
+      "expo-iap",
+      "expo-web-browser"
     ],
     "scheme": "tend",
     "backgroundColor": "#0a0d21",

@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { playSound } from '@/audio/sounds';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { useLoop } from '@/components/illustration';
+import { PlusPill } from '@/components/plus/PlusPill';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { IconButton } from '@/components/ui/IconButton';
@@ -12,9 +13,12 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Stepper } from '@/components/ui/Stepper';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
+import { liveHabits } from '@/data/selectors';
 import type { Category, Frequency, FrequencyType, TimeOfDay } from '@/data/types';
 import { haptic } from '@/lib/haptics';
+import { FREE_HABIT_LIMIT, isHabitLimitReached, openPaywall } from '@/lib/plusFeatures';
 import { useData } from '@/store/data';
+import { usePlus } from '@/store/plus';
 import { toast } from '@/store/ui';
 import { useTheme } from '@/theme';
 import { HABIT_HUES } from '@/theme/themes.generated';
@@ -80,6 +84,11 @@ function deriveTimeOfDay(category: Category, reminderOn: boolean, time: string):
 export function CreateHabitSheet({ close, prefill }: { close: () => void; prefill?: HabitPrefill }) {
   const { c, habit } = useTheme();
   const addHabit = useData((s) => s.addHabit);
+  const habitsMap = useData((s) => s.habits);
+  const { active: plus } = usePlus();
+  const habitCount = useMemo(() => liveHabits(habitsMap).length, [habitsMap]);
+  // Free accounts keep every habit they have; they just can't plant another past the limit.
+  const atLimit = isHabitLimitReached(habitCount, plus);
 
   const [name, setName] = useState(prefill?.name ?? '');
   const [icon, setIcon] = useState<IconName>(prefill?.icon ?? 'drop');
@@ -99,8 +108,13 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
   const trimmed = name.trim();
   const inputStyle = [styles.input, { borderColor: c.line, backgroundColor: c.surface, color: c.ink }];
 
+  const unlock = () => {
+    close();
+    openPaywall('habits');
+  };
+
   const save = () => {
-    if (!trimmed) return;
+    if (!trimmed || atLimit) return;
     const frequency: Frequency =
       freq === 'days' ? { type: freq, days } : freq === 'weekly' || freq === 'monthly' ? { type: freq, times } : freq === 'custom' ? { type: freq, every } : { type: 'daily' };
     addHabit({
@@ -130,6 +144,8 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
         </Text>
         <IconButton icon="close" label="Close" size={36} iconSize={17} variant="plain" onPress={close} style={{ backgroundColor: c.surface2 }} />
       </View>
+
+      {atLimit && <LimitNote onPress={unlock} />}
 
       <View style={[styles.preview, { backgroundColor: h.soft }]} accessibilityLabel={`Preview: ${trimmed || 'New habit'}`}>
         <FloatingTile color={h.c} icon={icon} />
@@ -351,8 +367,32 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
         style={[inputStyle, styles.notes]}
       />
 
-      <Button label="Plant this habit" onPress={save} disabled={!trimmed} />
+      {atLimit ? (
+        <Button label="Unlock unlimited habits" icon="sparkle" onPress={unlock} />
+      ) : (
+        <Button label="Plant this habit" onPress={save} disabled={!trimmed} />
+      )}
     </View>
+  );
+}
+
+/** Shown at the Free habit limit: calm, no pressure. */
+function LimitNote({ onPress }: { onPress: () => void }) {
+  const { c } = useTheme();
+  return (
+    <PressableScale
+      onPress={onPress}
+      scaleTo={0.98}
+      accessibilityLabel={`You’re growing ${FREE_HABIT_LIMIT} habits, the most on Free. Plus gives you room for as many as you like.`}
+      accessibilityHint="Opens Plus"
+      style={[styles.limit, { backgroundColor: c.a1soft }]}
+    >
+      <View style={styles.flex}>
+        <Text variant="bodyStrong">{`You’re growing ${FREE_HABIT_LIMIT} habits — the most on Free.`}</Text>
+        <Text variant="small" color="ink2">Plus gives you room for as many as you like.</Text>
+      </View>
+      <PlusPill />
+    </PressableScale>
   );
 }
 
@@ -405,6 +445,7 @@ function CountRow({ children, label, value, min, max, onChange }: {
 
 const styles = StyleSheet.create({
   root: { gap: 20 },
+  limit: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 20 },
   flex: { flex: 1 },
   bold: { fontFamily: fonts.body700 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -14,6 +14,8 @@ import { SheetHost } from '@/components/overlay/SheetHost';
 import { ToastHost } from '@/components/overlay/ToastHost';
 import { useAuth } from '@/api/auth';
 import { startSync, useSync } from '@/api/sync';
+import { initBilling } from '@/lib/billing';
+import { usePlusGuards } from '@/lib/plusGuards';
 import { startPrefsSync } from '@/lib/prefsSync';
 import { useReminderSync } from '@/lib/reminders';
 import { applyStreakProtection } from '@/lib/streakProtection';
@@ -24,6 +26,7 @@ import { useResponsive } from '@/lib/responsive';
 import { usePersistHydrated } from '@/lib/usePersistHydrated';
 import { useDataHydrated } from '@/store/data';
 import { useOnboarding } from '@/store/onboarding';
+import { startPlus, usePlusStore } from '@/store/plus';
 import { ThemeProvider, useTendFonts, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -38,6 +41,7 @@ function Shell() {
   const pathname = usePathname();
   useFocusEngine();
   useReminderSync();
+  usePlusGuards();
   return (
     <RootBlurTarget.Provider value={blurTarget}>
       <StatusBar style={dark ? 'light' : 'dark'} />
@@ -63,6 +67,7 @@ function Shell() {
               <Stack.Screen name="themes" />
               <Stack.Screen name="notifications" />
               <Stack.Screen name="habit/[id]" />
+              <Stack.Screen name="plus" options={{ animation: isDesktop ? 'none' : 'slide_from_bottom' }} />
             </Stack.Protected>
             {/* Design-system review screen: development builds only. */}
             <Stack.Protected guard={__DEV__ && signedIn}>
@@ -91,7 +96,8 @@ export default function RootLayout() {
   const dataReady = useDataHydrated();
   const authReady = usePersistHydrated(useAuth.persist);
   const onboardingReady = usePersistHydrated(useOnboarding.persist);
-  const ready = fontsReady && dataReady && authReady && onboardingReady;
+  const plusReady = usePersistHydrated(usePlusStore.persist);
+  const ready = fontsReady && dataReady && authReady && onboardingReady && plusReady;
   useEffect(() => {
     void initSounds();
     void initNotifications();
@@ -101,6 +107,8 @@ export default function RootLayout() {
     SplashScreen.hideAsync().catch(() => {});
     startSync();
     startPrefsSync();
+    startPlus();
+    void initBilling();
     applyStreakProtection();
     const app = AppState.addEventListener('change', (st) => st === 'active' && applyStreakProtection());
     // Remote changes (e.g. check-ins from another device) can change which days need cover.

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Db, Tx } from "./db.js";
-import { AppError } from "./errors.js";
+import { AppError, accountDisabled } from "./errors.js";
 import { now } from "./time.js";
 import { generateRefreshToken, hashToken, REFRESH_TOKEN_TTL_MS } from "./tokens.js";
 
@@ -28,8 +28,14 @@ export async function createRefreshToken(
  */
 export async function rotateRefreshToken(db: Db, token: string): Promise<{ userId: string; token: string }> {
   const outcome = await db.$transaction(async (tx) => {
-    const stored = await tx.refreshToken.findUnique({ where: { tokenHash: hashToken(token) } });
+    const stored = await tx.refreshToken.findUnique({
+      where: { tokenHash: hashToken(token) },
+      include: { user: { select: { disabledAt: true } } },
+    });
     if (!stored) return null;
+    // Checked before revocation: disabling revokes every token, but the holder should
+    // learn the account is disabled rather than be told to sign in again.
+    if (stored.user.disabledAt !== null) return "disabled" as const;
 
     const at = now();
     if (stored.revokedAt !== null) {
@@ -52,6 +58,7 @@ export async function rotateRefreshToken(db: Db, token: string): Promise<{ userI
     return { userId: stored.userId, token: next.token };
   });
 
+  if (outcome === "disabled") throw accountDisabled();
   if (!outcome) throw invalidRefreshToken();
   return outcome;
 }
@@ -63,4 +70,9 @@ export async function revokeRefreshToken(db: Db, token: string): Promise<void> {
 
 async function revokeFamily(tx: Tx, familyId: string, at: number): Promise<void> {
   await tx.refreshToken.updateMany({ where: { familyId, revokedAt: null }, data: { revokedAt: at } });
+}
+
+/** Revokes every live refresh token of a user (used when an admin disables the account). */
+export async function revokeAllForUser(db: Db | Tx, userId: string): Promise<void> {
+  await db.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now() } });
 }

@@ -3,8 +3,11 @@ import { StyleSheet, View } from 'react-native';
 import { AreaChart, BarChart } from '@/components/charts';
 import { Icon } from '@/components/icons/Icon';
 import { MoodFace } from '@/components/illustration';
+import { PlusPill } from '@/components/plus/PlusPill';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { Text } from '@/components/ui/Text';
 import { formatFocusTotal, RANGE_LABEL, RANGE_VS, type HabitInsights, type Range } from '@/data/insights';
+import { openPaywall } from '@/lib/plusFeatures';
 import { alpha, mix, useTheme } from '@/theme';
 import { fonts } from '@/theme/tokens';
 import { Card, CardGrid } from './Card';
@@ -16,17 +19,19 @@ interface TabProps {
   range: Range;
   animateKey: string;
   wide: boolean;
+  /** Mood × habits is part of Plus. */
+  moodLocked?: boolean;
 }
 
 const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
 
 /** Habits tab of Insights (SPEC §4.10): consistency, trend, categories, streak runs, mood. */
-export function HabitsTab({ data, range, animateKey, wide }: TabProps) {
+export function HabitsTab({ data, range, animateKey, wide, moodLocked }: TabProps) {
   const overview = <Overview data={data} range={range} animateKey={animateKey} />;
   const trend = <Trend data={data} range={range} animateKey={animateKey} />;
   const categories = data.categories.length > 0 && <Categories data={data} animateKey={animateKey} />;
   const streaks = <Streaks data={data} animateKey={animateKey} />;
-  const mood = <Mood data={data} animateKey={animateKey} />;
+  const mood = moodLocked ? <LockedMood /> : <Mood data={data} animateKey={animateKey} />;
 
   if (wide) {
     return (
@@ -192,6 +197,39 @@ function Streaks({ data, animateKey }: { data: HabitInsights; animateKey: string
   );
 }
 
+/** Mood × habits for Free: a soft, blurred-looking placeholder that opens Plus. */
+function LockedMood() {
+  const { c } = useTheme();
+  const bars = [0.78, 0.46];
+  return (
+    <PressableScale
+      onPress={() => openPaywall('mood')}
+      scaleTo={0.98}
+      accessibilityLabel="Mood × habits. See how your habits lift your mood — Plus"
+      accessibilityHint="Opens Plus"
+    >
+      <Card>
+        <View style={styles.lockedHead}>
+          <Text variant="caption" color="ink3">Mood × habits</Text>
+          <PlusPill />
+        </View>
+        <View style={[styles.rows, styles.ghost]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {bars.map((f, i) => (
+            <View key={i} style={styles.moodRow}>
+              <MoodFace mood={i === 0 ? 'great' : 'okay'} size={30} />
+              <View style={[styles.flex, styles.ghostTrack, { backgroundColor: c.track }]}>
+                <View style={[styles.ghostBar, { width: `${f * 100}%`, backgroundColor: i === 0 ? c.a1 : c.ink3 }]} />
+              </View>
+              <View style={[styles.ghostPct, { backgroundColor: c.track }]} />
+            </View>
+          ))}
+        </View>
+        <Text style={styles.moodLine}>See how your habits lift your mood — Plus</Text>
+      </Card>
+    </PressableScale>
+  );
+}
+
 function Mood({ data, animateKey }: { data: HabitInsights; animateKey: string }) {
   const { c } = useTheme();
   const m = data.mood;
@@ -260,4 +298,9 @@ const styles = StyleSheet.create({
   moodRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   moodPct: { width: 38, fontFamily: fonts.body700, fontSize: 13, lineHeight: 17 },
   caption: { fontSize: 12.5, lineHeight: 17 },
+  lockedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ghost: { opacity: 0.35 },
+  ghostTrack: { height: 10, borderRadius: 5, overflow: 'hidden' },
+  ghostBar: { height: 10, borderRadius: 5 },
+  ghostPct: { width: 38, height: 10, borderRadius: 5 },
 });

@@ -39,8 +39,8 @@ describe("register", () => {
     const res = await post("/v1/auth/register", { email: "  Mixed.Case@Example.COM ", password: "password123", name: "Ravi" });
     expect(res.statusCode).toBe(201);
     const body = res.json();
-    expect(body.user).toEqual({ id: expect.any(String), email: "mixed.case@example.com", name: "Ravi", createdAt: expect.any(Number) });
-    expect(Object.keys(body.user)).toHaveLength(4);
+    expect(body.user).toEqual({ id: expect.any(String), email: "mixed.case@example.com", name: "Ravi", createdAt: expect.any(Number), role: "user" });
+    expect(Object.keys(body.user)).toHaveLength(5);
     expect(body.accessToken).toMatch(/^ey/);
     expect(typeof body.refreshToken).toBe("string");
   });

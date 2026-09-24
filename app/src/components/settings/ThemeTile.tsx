@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { Icon } from '@/components/icons/Icon';
+import { PlusPill } from '@/components/plus/PlusPill';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Text } from '@/components/ui/Text';
 import { useTheme } from '@/theme';
@@ -35,10 +36,12 @@ export interface ThemeTileProps {
   selected: boolean;
   onSelect: (id: ThemeId) => void;
   width: number;
+  /** Part of Plus: shows the Plus pill instead of the check. */
+  locked?: boolean;
 }
 
 /** Mini preview of a theme in the current mode, with a spring-in check when selected (SPEC §4.17). */
-export const ThemeTile = memo(function ThemeTile({ id, dark, selected, onSelect, width }: ThemeTileProps) {
+export const ThemeTile = memo(function ThemeTile({ id, dark, selected, onSelect, width, locked }: ThemeTileProps) {
   const { c, reduceMotion } = useTheme();
   const p = getPalette(id, dark);
   const t = p.colors;
@@ -58,7 +61,7 @@ export const ThemeTile = memo(function ThemeTile({ id, dark, selected, onSelect,
       onPress={() => onSelect(id)}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={`${p.name} theme`}
+      accessibilityLabel={`${p.name} theme${locked ? ', Plus' : ''}`}
       style={[styles.tile, { width, borderColor: selected ? c.a1 : c.line }]}
     >
       <View style={[styles.preview, { backgroundColor: t.bg }]}>
@@ -74,9 +77,13 @@ export const ThemeTile = memo(function ThemeTile({ id, dark, selected, onSelect,
         <Text style={styles.name} numberOfLines={1}>
           {p.name}
         </Text>
-        <Animated.View style={[styles.check, { backgroundColor: c.a1 }, checkStyle]}>
-          <Icon name="check" size={13} strokeWidth={3.2} color={c.a1ink} />
-        </Animated.View>
+        {locked ? (
+          <PlusPill size="sm" />
+        ) : (
+          <Animated.View style={[styles.check, { backgroundColor: c.a1 }, checkStyle]}>
+            <Icon name="check" size={13} strokeWidth={3.2} color={c.a1ink} />
+          </Animated.View>
+        )}
       </View>
     </PressableScale>
   );

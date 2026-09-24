@@ -21,6 +21,8 @@ import { toast, useUI } from '@/store/ui';
 import { splitAlpha, useTheme } from '@/theme';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { fonts } from '@/theme/tokens';
+import { isAmbientLocked } from '@/lib/plusFeatures';
+import { isPlusNow } from '@/store/plus';
 import { setAmbient, stopAmbient } from './ambient';
 
 const KEEP_AWAKE_TAG = 'tend-focus';
@@ -29,7 +31,9 @@ const LABEL: Record<FocusMode, string> = { focus: 'Focus', short: 'Short break',
 
 function syncAmbient() {
   const s = useFocus.getState();
-  if (s.status === 'running' && s.mode === 'focus') setAmbient(usePrefs.getState().ambient);
+  const ambient = usePrefs.getState().ambient;
+  // Ambient sounds are part of Plus (usePlusGuards also resets the pref).
+  if (s.status === 'running' && s.mode === 'focus') setAmbient(isAmbientLocked(ambient, isPlusNow()) ? 'Off' : ambient);
   else stopAmbient();
 }
 

@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { Db, Tx } from "../lib/db.js";
 import { AppError } from "../lib/errors.js";
+import { now } from "../lib/time.js";
 import { describeIssues } from "../lib/validate.js";
 import {
   type Collection,
@@ -37,7 +38,7 @@ export async function sync(db: Db, userId: string, request: SyncRequest): Promis
       // committed in order.
       const { rev: startRev } = await tx.user.update({
         where: { id: userId },
-        data: { rev: { increment: 0 } },
+        data: { rev: { increment: 0 }, lastSyncAt: now() },
         select: { rev: true },
       });
 

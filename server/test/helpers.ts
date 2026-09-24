@@ -15,7 +15,9 @@ export interface TestContext {
 }
 
 /** Builds the app against a freshly migrated SQLite file in a temp directory. */
-export async function createTestApp(options: Partial<BuildAppOptions> = {}): Promise<TestContext> {
+export type TestAppOptions = Partial<Omit<BuildAppOptions, "env">> & { env?: Partial<BuildAppOptions["env"]> };
+
+export async function createTestApp({ env, ...options }: TestAppOptions = {}): Promise<TestContext> {
   const dir = mkdtempSync(join(tmpdir(), "tend-test-"));
   const databaseUrl = `file:${join(dir, "test.db")}`;
   execFileSync(prismaBin, ["migrate", "deploy"], {
@@ -24,9 +26,12 @@ export async function createTestApp(options: Partial<BuildAppOptions> = {}): Pro
     stdio: "pipe",
   });
   const app = await buildApp({
-    env: { DATABASE_URL: databaseUrl, JWT_SECRET: "test-secret-that-is-at-least-32-characters-long", CORS_ORIGIN: "*" },
+    env: { DATABASE_URL: databaseUrl, JWT_SECRET: "test-secret-that-is-at-least-32-characters-long", CORS_ORIGIN: "*", ...env },
     authRateLimit: { max: 10_000, timeWindow: "1 minute" },
     ...options,
+  }).catch((err: unknown) => {
+    rmSync(dir, { recursive: true, force: true });
+    throw err;
   });
   return {
     app,
@@ -53,6 +58,12 @@ export async function register(app: FastifyInstance, email = `user${++counter}@e
 }
 
 export const bearer = (session: Session) => ({ authorization: `Bearer ${session.accessToken}` });
+
+/** Promotes a registered user to admin directly in the DB (what `npm run admin:create` does). */
+export async function makeAdmin(app: FastifyInstance, session: Session): Promise<Session> {
+  await app.db.user.update({ where: { id: session.userId }, data: { role: "admin" } });
+  return session;
+}
 
 export const emptyChanges = () => ({
   habits: [] as unknown[],

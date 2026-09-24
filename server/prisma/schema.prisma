@@ -24,8 +24,15 @@ model User {
   createdAt    Float
   /// Per-user monotonically increasing revision; bumped once per accepted sync write.
   rev          Int      @default(0)
+  /// 'user' | 'admin'
+  role         String   @default("user")
+  /// Set when an admin disables the account; disabled users cannot authenticate.
+  disabledAt   Float?
+  /// Last successful /v1/sync (used for "active" stats).
+  lastSyncAt   Float?
 
   refreshTokens RefreshToken[]
+  entitlements  Entitlement[]
   profile       Profile?
   habits        Habit[]
   habitLogs     HabitLog[]
@@ -187,4 +194,45 @@ model BadgeState {
 
   @@id([userId, id])
   @@index([userId, rev])
+}
+
+/// Grants Plus for a period. See docs/API.md (v1.1).
+model Entitlement {
+  id            String  @id
+  userId        String
+  /// 'play_subscription' | 'play_lifetime' | 'admin' | 'trial'
+  source        String
+  /// 'plus' | 'plus_lifetime' | null
+  productId     String?
+  /// 'monthly' | 'yearly' | null
+  basePlanId    String?
+  /// 'active' | 'grace' | 'on_hold' | 'paused' | 'canceled' | 'expired' | 'revoked' | 'refunded'
+  status        String
+  startsAt      Float
+  /// null = lifetime
+  expiresAt     Float?
+  autoRenew     Boolean @default(false)
+  note          String?
+  grantedBy     String?
+  /// Google Play purchase token (Play sources only).
+  purchaseToken String? @unique
+  createdAt     Float
+  updatedAt     Float
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+/// One row per admin write. `details` is JSON stored as TEXT.
+model AuditLog {
+  id           String  @id
+  adminId      String
+  action       String
+  targetUserId String?
+  details      String
+  createdAt    Float
+
+  @@index([createdAt])
 }
