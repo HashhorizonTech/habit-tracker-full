@@ -6,6 +6,7 @@ import { playSound } from '@/audio/sounds';
 import { Icon } from '@/components/icons/Icon';
 import { Mascot } from '@/components/illustration';
 import { TaskRow } from '@/components/task/TaskRow';
+import { DataGate } from '@/components/ui/DataGate';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Screen } from '@/components/ui/Screen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -113,6 +114,7 @@ export default function TasksScreen() {
   return (
     <Screen>
       <ScreenHeader title="Tasks" subtitle={`${todayDone} of ${todayTotal} done today`} back desktopRoot />
+      <DataGate>
 
       <View style={[styles.add, { backgroundColor: c.surface, borderColor: c.line }]}>
         <TextInput
@@ -180,6 +182,7 @@ export default function TasksScreen() {
           ))}
         </View>
       )}
+      </DataGate>
     </Screen>
   );
 }

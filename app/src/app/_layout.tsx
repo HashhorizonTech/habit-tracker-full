@@ -1,5 +1,5 @@
 import { BlurTargetView } from 'expo-blur';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Sidebar } from '@/components/nav/Sidebar';
 import { RootBlurTarget } from '@/components/overlay/Backdrop';
 import { ModalHost } from '@/components/overlay/ModalHost';
+import { SplashOverlay } from '@/components/onboarding/SplashOverlay';
 import { SheetHost } from '@/components/overlay/SheetHost';
 import { ToastHost } from '@/components/overlay/ToastHost';
 import { useAuth } from '@/api/auth';
@@ -22,6 +23,7 @@ import { initNotifications } from '@/lib/notifications';
 import { useResponsive } from '@/lib/responsive';
 import { usePersistHydrated } from '@/lib/usePersistHydrated';
 import { useDataHydrated } from '@/store/data';
+import { useOnboarding } from '@/store/onboarding';
 import { ThemeProvider, useTendFonts, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -32,13 +34,15 @@ function Shell() {
   const blurTarget = useRef<View>(null);
   const user = useAuth((s) => s.user);
   const signedIn = !!user;
+  const seen = useOnboarding((s) => s.seen);
+  const pathname = usePathname();
   useFocusEngine();
   useReminderSync();
   return (
     <RootBlurTarget.Provider value={blurTarget}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       <BlurTargetView ref={blurTarget} style={[styles.row, { backgroundColor: c.page }]}>
-        {isDesktop && signedIn && <Sidebar />}
+        {isDesktop && signedIn && pathname !== '/onboarding' && <Sidebar />}
         <View style={styles.fill}>
           <Stack
             screenOptions={{
@@ -61,12 +65,17 @@ function Shell() {
               <Stack.Screen name="habit/[id]" />
               <Stack.Screen name="dev/design-system" />
             </Stack.Protected>
-            <Stack.Protected guard={!signedIn}>
+            {/* New device: welcome flow first; signed-in users can replay it from Settings. */}
+            <Stack.Protected guard={signedIn || !seen}>
+              <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+            </Stack.Protected>
+            <Stack.Protected guard={!signedIn && seen}>
               <Stack.Screen name="sign-in" />
             </Stack.Protected>
           </Stack>
         </View>
       </BlurTargetView>
+      <SplashOverlay />
       <SheetHost />
       <ModalHost />
       <ToastHost />
@@ -78,7 +87,8 @@ export default function RootLayout() {
   const fontsReady = useTendFonts();
   const dataReady = useDataHydrated();
   const authReady = usePersistHydrated(useAuth.persist);
-  const ready = fontsReady && dataReady && authReady;
+  const onboardingReady = usePersistHydrated(useOnboarding.persist);
+  const ready = fontsReady && dataReady && authReady && onboardingReady;
   useEffect(() => {
     void initSounds();
     void initNotifications();

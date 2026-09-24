@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { BadgeGrid } from '@/components/achievements/BadgeGrid';
 import { LevelHero } from '@/components/achievements/LevelHero';
 import { MilestoneTrack } from '@/components/achievements/MilestoneTrack';
+import { DataGate } from '@/components/ui/DataGate';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -41,6 +42,7 @@ export default function AchievementsScreen() {
   return (
     <Screen>
       <ScreenHeader title="Achievements" back desktopRoot />
+      <DataGate>
       {!hasHabits ? (
         <EmptyState
           title="Your first badge is one habit away"
@@ -64,6 +66,7 @@ export default function AchievementsScreen() {
           <BadgeGrid progress={progress} width={contentWidth} />
         </View>
       )}
+      </DataGate>
     </Screen>
   );
 }

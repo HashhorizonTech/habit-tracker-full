@@ -9,8 +9,10 @@ import { DayDial } from '@/components/home/DayDial';
 import { FocusCard } from '@/components/home/FocusCard';
 import { MoodStrip } from '@/components/home/MoodStrip';
 import { StatRow } from '@/components/home/StatRow';
-import { Flame, Mascot } from '@/components/illustration';
+import { RefreshLeaf } from '@/components/home/RefreshLeaf';
+import { Flame } from '@/components/illustration';
 import { TimelineRow } from '@/components/task/TimelineRow';
+import { DataGate } from '@/components/ui/DataGate';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { PressableScale } from '@/components/ui/PressableScale';
@@ -28,7 +30,7 @@ import { useResponsive } from '@/lib/responsive';
 import { levelInfo } from '@/lib/xp';
 import { useData } from '@/store/data';
 import { useTheme } from '@/theme';
-import { fonts, space } from '@/theme/tokens';
+import { fonts } from '@/theme/tokens';
 
 function useToday() {
   const habitsMap = useData((s) => s.habits);
@@ -102,6 +104,8 @@ export default function TodayScreen() {
   if (!t.all.length) {
     return (
       <Screen tab refreshControl={refresh}>
+        {refreshing && <RefreshLeaf />}
+        <DataGate variant="home">
         {header}
         <EmptyState
           title="Ready to build your first habit?"
@@ -114,6 +118,7 @@ export default function TodayScreen() {
             <Text variant="small" color="ink3">Load demo data (dev)</Text>
           </PressableScale>
         )}
+        </DataGate>
       </Screen>
     );
   }
@@ -217,11 +222,8 @@ export default function TodayScreen() {
   const sections = [dialSection, habitsSection, planSection];
   return (
     <Screen tab refreshControl={refresh}>
-      {refreshing && (
-        <View style={styles.refresh} accessibilityLabel="Syncing">
-          <Mascot size={54} face="happy" />
-        </View>
-      )}
+      {refreshing && <RefreshLeaf />}
+      <DataGate variant="home">
       {header}
       {columns >= 2 ? (
         <View style={styles.grid}>
@@ -232,6 +234,7 @@ export default function TodayScreen() {
       ) : (
         <View style={{ gap: 30 }}>{sections.map((s, i) => <View key={i}>{s}</View>)}</View>
       )}
+      </DataGate>
     </Screen>
   );
 }
@@ -247,5 +250,4 @@ const styles = StyleSheet.create({
   recap: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderStyle: 'dashed' },
   recapIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 30, alignItems: 'flex-start' },
-  refresh: { alignItems: 'center', marginBottom: space[2] },
 });

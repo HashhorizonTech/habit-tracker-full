@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DaySheet } from '@/components/calendar/DaySheet';
 import { useCalendarData } from '@/components/calendar/useCalendarData';
+import { DataGate } from '@/components/ui/DataGate';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { PressableScale } from '@/components/ui/PressableScale';
@@ -133,6 +134,7 @@ export default function CalendarScreen() {
     return (
       <Screen>
         <ScreenHeader title="Calendar" back desktopRoot />
+        <DataGate>
         <EmptyState
           title="A blank month"
           body="Every day you show up will glow here."
@@ -142,6 +144,7 @@ export default function CalendarScreen() {
           accessory="sun"
           onPress={() => router.navigate('/')}
         />
+        </DataGate>
       </Screen>
     );
   }
@@ -149,6 +152,7 @@ export default function CalendarScreen() {
   return (
     <Screen>
       <ScreenHeader title="Calendar" back desktopRoot />
+      <DataGate>
       <View style={[styles.body, { width: gridWidth }]}>
         <View style={styles.switcher}>
           <IconButton icon="chevLeft" label="Previous month" size={40} iconSize={18} onPress={() => step(-1)} disabled={!canPrev} style={!canPrev && styles.off} />
@@ -180,6 +184,7 @@ export default function CalendarScreen() {
 
         <Legend />
       </View>
+      </DataGate>
     </Screen>
   );
 }

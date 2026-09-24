@@ -5,6 +5,7 @@ import { SortableHabitList } from '@/components/habit/SortableHabitList';
 import { Mascot } from '@/components/illustration';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { DataGate } from '@/components/ui/DataGate';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -61,12 +62,14 @@ export default function HabitsScreen() {
     return (
       <Screen tab>
         {header}
+        <DataGate>
         <EmptyState
           title="Ready to build your first habit?"
           body="Pick something small you'd be glad to do every day."
           cta="Create a habit"
           onPress={() => openCreateHabit()}
         />
+        </DataGate>
       </Screen>
     );
   }
@@ -77,6 +80,7 @@ export default function HabitsScreen() {
   return (
     <Screen tab scrollEnabled={!dragging}>
       {header}
+      <DataGate>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -111,6 +115,7 @@ export default function HabitsScreen() {
           ))}
         </View>
       )}
+      </DataGate>
     </Screen>
   );
 }

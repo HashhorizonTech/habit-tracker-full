@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { FocusTab } from '@/components/insights/FocusTab';
 import { HabitsTab } from '@/components/insights/HabitsTab';
 import { Chip } from '@/components/ui/Chip';
+import { DataGate } from '@/components/ui/DataGate';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
@@ -59,6 +60,7 @@ export default function InsightsScreen() {
     return (
       <Screen tab>
         <Text variant="h1" accessibilityRole="header" style={styles.title}>Insights</Text>
+        <DataGate>
         <EmptyState
           title="Your story starts here"
           body="Complete a few habits and your story will appear here."
@@ -68,6 +70,7 @@ export default function InsightsScreen() {
           accessory="star"
           icon={null}
         />
+        </DataGate>
       </Screen>
     );
   }
@@ -87,8 +90,10 @@ export default function InsightsScreen() {
           <Segmented options={RANGE_OPTIONS} value={range} onChange={setRange} size="sm" label="Date range" style={styles.range} />
         </View>
       </View>
+      <DataGate>
       {habitData && <HabitsTab data={habitData} range={range} animateKey={animateKey} wide={wide} />}
       {focusData && <FocusTab data={focusData} range={range} animateKey={animateKey} wide={wide} />}
+      </DataGate>
     </Screen>
   );
 }

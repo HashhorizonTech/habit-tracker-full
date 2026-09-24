@@ -42,6 +42,7 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
+    "sharp": "^0.35.4",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -52,6 +53,7 @@
     "typecheck": "tsc --noEmit",
     "gen:themes": "node scripts/gen-themes.mjs",
     "gen:sounds": "node scripts/gen-sounds.mjs",
+    "gen:icons": "node scripts/gen-icons.mjs",
     "lint": "expo lint"
   },
   "private": true
