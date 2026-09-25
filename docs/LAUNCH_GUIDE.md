@@ -87,6 +87,20 @@ Before publishing, fill in / confirm:
 | Purpose | App functionality, Account management |
 | Ads / analytics SDKs | None |
 
+## 5b. Push notifications for Friends (Firebase — free)
+Nudges and cheers already work without this (they appear in the friend's Activity when they open
+the app). Push makes them pop up on the lock screen.
+1. https://console.firebase.google.com → **Add project** (can be the same Google Cloud project as Play).
+2. **Add app → Android**, package name = your final package ID (step 1). Download **`google-services.json`** → send it to me (I'll put it in `app/` and add `android.googleServicesFile` to `app.json`, then rebuild).
+3. Project settings → **Service accounts** → *Generate new private key* → put the JSON into the server env **`FIREBASE_SERVICE_ACCOUNT_JSON`** (raw JSON or a file path). Keep it secret.
+4. Test: two phones, add each other, nudge → the other phone gets "Asha is cheering you on".
+
+## 5c. Invite links
+Share links look like `https://hashhorizon.in/app/<appname>/invite/<CODE>`. Create a small page at
+that path on hashhorizon.in (any page works — e.g. "Open the app and enter code XXXX, or get it on
+Google Play" with your Play Store link). On phones with the app installed, Android offers to open it
+in the app. (Later we can add verified App Links so it opens the app directly.)
+
 ## 6. Test purchases end-to-end
 With the internal-testing build installed from Play on a real phone signed in as a license tester:
 1. Open the app → You → **Try Plus** → buy Monthly / start the Yearly trial / buy Lifetime.
@@ -108,5 +122,7 @@ Production track → roll out (start with a staged rollout, e.g. 20%). Google's 
 - [ ] Internal test build uploaded, products `plus` (monthly, yearly+trial) and `plus_lifetime` created
 - [ ] Service account JSON + RTDN Pub/Sub set up → env vars filled
 - [ ] License testers added, purchases tested
+- [ ] Firebase project: `google-services.json` sent, `FIREBASE_SERVICE_ACCOUNT_JSON` on the server
+- [ ] Invite landing page at `/app/<appname>/invite/…`
 - [ ] Store listing, Data safety, content rating, account-deletion URL done
 - [ ] Production release
