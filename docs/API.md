@@ -169,3 +169,73 @@ temporary password).
 
 Revenue estimate uses env prices `PRICE_MONTHLY_INR` (99), `PRICE_YEARLY_INR` (699),
 `PRICE_LIFETIME_INR` (1999): monthly + yearly/12 for active Play subscriptions.
+
+---
+
+# v1.2 — Friends, nudges, push
+
+All routes require auth. Social never exposes email addresses or raw habit data — only what the
+owner publishes in their **friend card**.
+
+## Invite codes
+- Each user has a permanent invite code: 8 chars, uppercase, no ambiguous letters (e.g. `K7PQ-2MXR`
+  shown with a dash, stored without). Generated lazily on first `GET /v1/social/me`.
+- Share link: `https://hashhorizon.in/app/tend/invite/<CODE>` (the app also handles `tend://invite/<CODE>`).
+- `POST /v1/auth/register` accepts optional `inviteCode`. If valid: a friendship is created
+  immediately (both accepted), and — if the inviter has earned < 10 invite rewards in the last 365 days —
+  **both** get an `Entitlement { source: 'trial', note: 'invite reward', 7 days }` (stacking after current Plus).
+  Invalid codes are ignored (registration still succeeds). Response gains `inviteReward: boolean`.
+
+## Friend card (published by the owner)
+`PUT /v1/social/card` — the app publishes after check-ins/sync (debounced):
+```ts
+FriendCard {
+  streak: number; longestStreak: number; level: number; xp: number;
+  todayDone: number; todayTotal: number;         // today's habits
+  todayPct: number;                               // 0–100 day %
+  date: string;                                   // YYYY-MM-DD (owner's local day the numbers are for)
+  badges: string[];                               // unlocked badge ids (max 20)
+  habits: { name: string; icon: string; hue: number; doneToday: boolean; streak: number }[]; // ONLY habits the owner chose to share (max 30)
+  updatedAt: number;
+}
+```
+Server validates sizes; stores one card per user.
+
+## Social endpoints
+| Route | Result |
+|---|---|
+| `GET /v1/social/me` | `{ inviteCode, inviteUrl, rewardsEarned, rewardsLeft, settings: { shareHabitNames: boolean } }` |
+| `PUT /v1/social/settings` `{ shareHabitNames }` | settings (default false; app decides which habits via the card) |
+| `POST /v1/social/requests` `{ code }` | `201 { request }` — send a friend request by code. Errors: `404 CODE_NOT_FOUND`, `400 CANNOT_ADD_SELF`, `409 ALREADY_FRIENDS`, `409 REQUEST_PENDING`, `403 BLOCKED` (either side blocked — same message, no leak), `429 TOO_MANY_REQUESTS` (max 30 pending outgoing) |
+| `GET /v1/social/requests` | `{ incoming: RequestItem[], outgoing: RequestItem[] }` |
+| `POST /v1/social/requests/:id/accept` / `…/decline` / `DELETE /v1/social/requests/:id` (cancel own) | `200 / 204` |
+| `GET /v1/social/friends` | `{ friends: Friend[] }` sorted by name |
+| `DELETE /v1/social/friends/:userId` | `204` (removes both ways) |
+| `POST /v1/social/friends/:userId/nudge` `{ kind: 'nudge' \| 'cheer', message?: preset key }` | `201` — nudge: max 1 per sender→receiver per day (`429 NUDGE_LIMIT`); cheer: max 5/day. Triggers push. |
+| `GET /v1/social/inbox?since=<ms>` | `{ items: InboxItem[] }` last 50, newest first |
+| `POST /v1/social/inbox/read` `{ ids?: string[] }` | `204` (no ids = all) |
+| `POST /v1/social/block/:userId` / `DELETE /v1/social/block/:userId` | `204` — blocking also removes the friendship and pending requests |
+| `GET /v1/social/blocked` | `{ users: { userId, name, blockedAt }[] }` |
+| `POST /v1/social/report/:userId` `{ reason: 'spam'\|'harassment'\|'inappropriate'\|'other', details?: string ≤ 500 }` | `201` |
+
+```ts
+PublicUser { userId: string; name: string; initial: string }
+Friend      extends PublicUser { since: number; card: FriendCard | null; nudgedToday: boolean }
+RequestItem { id; from: PublicUser; to: PublicUser; createdAt }
+InboxItem   { id; kind: 'nudge'|'cheer'|'friend_request'|'friend_accepted'|'invite_joined'; from: PublicUser; message: string|null; createdAt; readAt: number|null }
+```
+Nudge/cheer preset message keys (text lives in the app): `nudge.gentle`, `nudge.streak`, `cheer.proud`, `cheer.keepgoing`, `cheer.fire`.
+
+## Push tokens
+`POST /v1/push/token` `{ token, platform: 'android'|'ios', kind: 'fcm'|'expo' }` → `204` (upsert; one user can have many devices).
+`DELETE /v1/push/token` `{ token }` → `204` (on sign-out).
+Server sends via **Firebase Cloud Messaging HTTP v1** when env `FIREBASE_SERVICE_ACCOUNT_JSON` is set
+(project id read from it). Without it, pushes are skipped silently — the inbox still works.
+Tokens FCM reports as unregistered are deleted. Push payload `data: { type, fromName }` + notification title/body.
+
+## Admin additions
+- `GET /v1/admin/stats` gains `social: { friendships, invitesJoined30d, nudges7d, openReports }`.
+- `GET /v1/admin/reports?status=open|resolved|all&page&pageSize` → `{ items: { id, reporter: {userId,email,name}, target: {userId,email,name}, reason, details, status, createdAt, resolvedAt }[], total, page, pageSize }`
+- `POST /v1/admin/reports/:id/resolve` `{ note? }` → report (audited).
+- `GET /v1/admin/users/:id` gains `social: { friends: number, invitedBy: {userId,email}|null, invitesJoined: number, blockedCount: number }`.
+- Deleting a user cascades all social rows.
