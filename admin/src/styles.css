@@ -426,7 +426,10 @@ input[aria-invalid='true'] {
   gap: 4px;
 }
 .nav-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 9px 12px;
   border-radius: var(--radius-sm);
   color: var(--ink2);
@@ -441,6 +444,17 @@ input[aria-invalid='true'] {
   background: color-mix(in srgb, var(--a1) 18%, transparent);
   color: var(--ink);
   box-shadow: inset 3px 0 0 var(--a1);
+}
+.nav-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .sidebar-foot {
   margin-top: auto;
@@ -643,6 +657,30 @@ input[aria-invalid='true'] {
   text-align: right;
   white-space: nowrap;
 }
+.row-actions {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.row-actions .btn:hover {
+  text-decoration: none;
+}
+.party {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.party:hover {
+  text-decoration: none;
+}
+.party:hover .cell-primary {
+  text-decoration: underline;
+}
+.party-email {
+  font-size: 12px;
+  color: var(--ink3);
+  overflow-wrap: anywhere;
+}
 
 /* ---------- Badges ---------- */
 .badge {
@@ -721,6 +759,27 @@ input[aria-invalid='true'] {
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+.stat-card-link {
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+.stat-card-link:hover {
+  text-decoration: none;
+  border-color: var(--line-strong);
+}
+.stat-card.is-highlighted {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
+}
+.stat-card.is-highlighted .stat-value,
+.stat-card.is-highlighted .stat-hint {
+  color: var(--warn);
+}
+.section-label {
+  margin: 8px 0 10px;
 }
 .stat-hint {
   font-size: 13px;
@@ -843,6 +902,17 @@ input[aria-invalid='true'] {
   font-size: 24px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.count-wide {
+  grid-column: span 2;
+  min-width: 0;
+}
+.count dd.count-text {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  padding-top: 6px;
 }
 .plus-status {
   margin-bottom: 14px;

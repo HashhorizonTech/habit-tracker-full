@@ -30,6 +30,10 @@ model User {
   disabledAt   Float?
   /// Last successful /v1/sync (used for "active" stats).
   lastSyncAt   Float?
+  /// Permanent friend-invite code (8 chars, stored without the dash). Generated lazily.
+  inviteCode      String? @unique
+  /// Social privacy: when false, the friend card's `habits` are stripped before friends see it.
+  shareHabitNames Boolean @default(false)
 
   refreshTokens RefreshToken[]
   entitlements  Entitlement[]
@@ -40,6 +44,21 @@ model User {
   focusSessions FocusSession[]
   moodLogs      MoodLog[]
   badges        BadgeState[]
+
+  invitesSent      InviteRedemption[] @relation("InviteInviter")
+  invitedVia       InviteRedemption?  @relation("InviteInvitee")
+  friendshipsA     Friendship[]       @relation("FriendshipA")
+  friendshipsB     Friendship[]       @relation("FriendshipB")
+  requestsSent     FriendRequest[]    @relation("RequestFrom")
+  requestsReceived FriendRequest[]    @relation("RequestTo")
+  friendCard       FriendCard?
+  inbox            InboxItem[]        @relation("InboxRecipient")
+  inboxSent        InboxItem[]        @relation("InboxSender")
+  blocksMade       Block[]            @relation("BlockBlocker")
+  blocksReceived   Block[]            @relation("BlockBlocked")
+  reportsMade      Report[]           @relation("ReportReporter")
+  reportsReceived  Report[]           @relation("ReportTarget")
+  pushTokens       PushToken[]
 }
 
 model RefreshToken {
@@ -235,4 +254,133 @@ model AuditLog {
   createdAt    Float
 
   @@index([createdAt])
+}
+
+// ---- v1.2 social (see docs/API.md) -------------------------------------------------------
+// Every social row references its users with ON DELETE CASCADE.
+
+/// One row per account created with someone's invite code (also the invite-reward ledger).
+model InviteRedemption {
+  id                   String  @id
+  inviterId            String
+  /// A user can join with at most one code.
+  inviteeId            String  @unique
+  code                 String
+  /// Whether both sides got the 7-day Plus reward (false once the inviter hit the yearly cap).
+  rewarded             Boolean
+  inviterEntitlementId String?
+  inviteeEntitlementId String?
+  createdAt            Float
+
+  inviter User @relation("InviteInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User @relation("InviteInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId, createdAt])
+  @@index([createdAt])
+}
+
+/// An accepted friendship, stored once per pair in canonical order (userAId < userBId).
+model Friendship {
+  userAId   String
+  userBId   String
+  createdAt Float
+
+  userA User @relation("FriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@id([userAId, userBId])
+  @@index([userBId])
+}
+
+/// A pending friend request. Accepting, declining or cancelling deletes the row.
+model FriendRequest {
+  id        String @id
+  fromId    String
+  toId      String
+  createdAt Float
+
+  from User @relation("RequestFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   User @relation("RequestTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+  @@index([toId])
+}
+
+/// The owner-published friend card; `data` is the validated FriendCard as JSON TEXT.
+model FriendCard {
+  userId    String @id
+  data      String
+  updatedAt Float
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Social inbox. kind: 'nudge' | 'cheer' | 'friend_request' | 'friend_accepted' | 'invite_joined'.
+model InboxItem {
+  id        String  @id
+  /// Recipient.
+  userId    String
+  fromId    String
+  kind      String
+  /// Preset message key for nudges/cheers.
+  message   String?
+  createdAt Float
+  readAt    Float?
+
+  user User @relation("InboxRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  from User @relation("InboxSender", fields: [fromId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([fromId, userId, kind, createdAt])
+  @@index([kind, createdAt])
+}
+
+model Block {
+  blockerId String
+  blockedId String
+  createdAt Float
+
+  blocker User @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Report {
+  id             String  @id
+  reporterId     String
+  targetId       String
+  /// 'spam' | 'harassment' | 'inappropriate' | 'other'
+  reason         String
+  details        String?
+  /// 'open' | 'resolved'
+  status         String  @default("open")
+  createdAt      Float
+  resolvedAt     Float?
+  resolvedBy     String?
+  resolutionNote String?
+
+  reporter User @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  target   User @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([reporterId, createdAt])
+  @@index([targetId])
+}
+
+/// A device push token. Keyed by the token so a device that switches accounts moves with it.
+model PushToken {
+  token     String @id
+  userId    String
+  /// 'android' | 'ios'
+  platform  String
+  /// 'fcm' | 'expo'
+  kind      String
+  createdAt Float
+  updatedAt Float
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

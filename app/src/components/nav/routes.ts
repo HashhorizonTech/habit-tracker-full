@@ -31,5 +31,6 @@ export const SIDEBAR: NavItem[] = [
   { id: 'calendar', label: 'Calendar', icon: 'calendar', href: '/calendar', match: startsWith('/calendar') },
   TABS[3],
   { id: 'achievements', label: 'Achievements', icon: 'trophy', href: '/achievements', match: startsWith('/achievements') },
+  { id: 'friends', label: 'Friends', icon: 'users', href: '/friends', match: startsWith('/friends') },
   { ...TABS[4], label: 'Profile' },
 ];

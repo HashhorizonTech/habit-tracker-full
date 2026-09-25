@@ -1,6 +1,6 @@
 # Tend Admin
 
-Admin console for Tend: users, Plus entitlements, subscriptions and the audit log.
+Admin console for Tend: users, Plus entitlements, subscriptions, social reports and the audit log.
 Vite + React 19 + TypeScript, react-router, TanStack Query, hand-written CSS (Aurora tokens).
 The product name lives in one place: `src/brand.ts` (`APP_NAME`).
 

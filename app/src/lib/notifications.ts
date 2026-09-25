@@ -1,7 +1,9 @@
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
 
-export const CHANNELS = { focus: 'focus', reminders: 'reminders' } as const;
+export const CHANNELS = { focus: 'focus', reminders: 'reminders', social: 'social' } as const;
+
+const SOCIAL_TYPES = ['nudge', 'cheer', 'friend_request', 'friend_accepted', 'invite_joined'];
 
 let ready: Promise<void> | null = null;
 
@@ -11,7 +13,9 @@ export function initNotifications(): Promise<void> {
     Notifications.setNotificationHandler({
       handleNotification: async (n) => {
         // The app plays its own bell and modal when a focus run ends in the foreground.
-        const inApp = n.request.content.data?.kind === 'focus' && AppState.currentState === 'active';
+        // Friends' nudges show as an in-app toast instead (see store/social.ts).
+        const data = n.request.content.data;
+        const inApp = (data?.kind === 'focus' || SOCIAL_TYPES.includes(String(data?.type))) && AppState.currentState === 'active';
         return { shouldPlaySound: !inApp, shouldSetBadge: false, shouldShowBanner: !inApp, shouldShowList: !inApp };
       },
     });
@@ -26,6 +30,11 @@ export function initNotifications(): Promise<void> {
       await Notifications.setNotificationChannelAsync(CHANNELS.reminders, {
         name: 'Reminders',
         description: 'Habit reminders and daily nudges',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+      await Notifications.setNotificationChannelAsync(CHANNELS.social, {
+        name: 'Friends',
+        description: 'Nudges, cheers and friend requests',
         importance: Notifications.AndroidImportance.DEFAULT,
       });
     }

@@ -41,6 +41,7 @@ no longer generates on `migrate dev`, so the scripts call `prisma generate` expl
 | `GOOGLE_RTDN_SECRET` | for RTDN | – | Shared secret in the Pub/Sub push URL `?token=`. Unset → every RTDN push gets `401` |
 | `BILLING_FAKE` | no | `false` | Dev only: accept `fake:<monthly\|yearly\|lifetime>:<random>` tokens |
 | `PRICE_MONTHLY_INR` / `PRICE_YEARLY_INR` / `PRICE_LIFETIME_INR` | no | `99` / `699` / `1999` | List prices for the admin revenue estimate |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | for push | – | Firebase service-account key: raw JSON **or** a path to the `.json` file (project id read from it). Unset → pushes are skipped silently; the social inbox still works |
 
 `.env` is loaded by `src/server.ts` and `prisma.config.ts`; it is git-ignored.
 
@@ -77,6 +78,45 @@ an admin or `refunded` (voided purchase) are never re-activated by later Google 
 re-verifying the same token is a no-op. Never enable it in production — the server
 refuses to start with `NODE_ENV=production`.
 
+## Friends, nudges and push (v1.2)
+
+Routes live under `/v1/social/*` and `/v1/push/token` (see the contract). Behaviour worth knowing:
+
+- **Invite codes** are 8 chars from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`, stored without the dash
+  (`User.inviteCode`), generated on the first `GET /v1/social/me`. Input is accepted with or
+  without the dash and in any case. `GET /v1/social/me` returns the undashed code; the app shows `K7PQ-2MXR`.
+- **Register with `inviteCode`**: friendship + `invite_joined` inbox item/push for the inviter, and a
+  7-day `trial` entitlement (`note: 'invite reward'`) for both sides — stacked after current Plus —
+  while the inviter has < 10 rewarded invites in the last 365 days (`InviteRedemption` is the ledger).
+  Unknown codes, disabled inviters and non-string values are ignored; the response always carries
+  `inviteReward: boolean`. `rewardsEarned` in `/social/me` is the rolling-365-day count, so
+  `rewardsEarned + rewardsLeft = 10`.
+- **Requests**: sending to someone who already has a pending request to you accepts theirs instead:
+  `201 { autoAccepted: true, request, friend }` (normal case: `201 { autoAccepted: false, request }`).
+  Accept → `200 { friend }`; decline/cancel → `204`. Accepted/declined/cancelled requests are deleted.
+- **Friendships** are stored once per pair (`userAId < userBId`). Friend names come from the synced
+  profile name, falling back to the registration name; emails are never exposed.
+- **Cards**: `PUT /v1/social/card` validates sizes (≤ 20 badges, ≤ 30 habits, habit names ≤ 60 chars)
+  and is last-write-wins by `updatedAt` (an older card is ignored and the stored one returned).
+  Friends get `habits: []` unless the owner set `shareHabitNames: true`.
+- **Nudges/cheers**: per sender → receiver per **UTC day**: 1 nudge, 5 cheers (`429 NUDGE_LIMIT`).
+  `nudgedToday` uses the same UTC day. The optional `message` must be a preset key of the same kind.
+- **Blocks** delete the friendship, pending requests and inbox items between the pair; afterwards
+  requests and nudges in either direction get `403 BLOCKED` (same message both ways). Reporting a
+  blocked user is allowed. Unblocking does not restore anything.
+- **Rate limit**: requests, nudges and reports share 30/min per account (`429 RATE_LIMITED`).
+- **Push** (`src/push/fcm.ts`, behind `PushSender`): FCM HTTP v1 with
+  `android: { priority: 'high', notification: { channel_id: 'social' } }` and `data: { type, fromName }`;
+  notification text is built server-side (`src/push/notifier.ts`). Only tokens registered with
+  `kind: 'fcm'` are sent to (Expo tokens are stored but not addressable via FCM). Tokens FCM
+  answers with 404/`UNREGISTERED` are deleted. Sends happen after the response (fire-and-forget).
+  A user keeps at most 10 tokens (oldest dropped); a token re-registered by another account moves to it.
+
+Setting up push: Firebase console → your project → add the Android app (package `com.tend.app`),
+then *Project settings → Service accounts → Generate new private key* and point
+`FIREBASE_SERVICE_ACCOUNT_JSON` at the file. The app must create an Android notification channel
+with id `social`.
+
 ## Admin
 
 The admin API lives under `/v1/admin/*` (see the contract) and needs `role: 'admin'`.
@@ -88,7 +128,7 @@ npm run admin:create -- you@company.com
 
 It promotes an existing account, or creates one and prints a random 16-character
 password once. To demote, set `role = 'user'` on the row directly. Every admin write
-(grant, revoke, disable, enable, delete) lands in the `AuditLog` table. Set
+(grant, revoke, disable, enable, delete, resolve_report) lands in the `AuditLog` table. Set
 `CORS_ORIGIN` to include the admin panel's origin (e.g.
 `CORS_ORIGIN="http://localhost:5173,https://admin.example.com"`).
 
@@ -126,8 +166,10 @@ src/
   app.ts            buildApp() factory (used by tests)
   server.ts         entry point: env, listen, graceful shutdown
   env.ts            zod-validated environment
-  routes/           health, auth, me (+ /v1/plus), sync, export, billing, admin
+  routes/           health, auth, me (+ /v1/plus), sync, export, billing, admin, social, push
   billing/          Google Play client + mapping (google.ts), verify/RTDN logic (service.ts)
+  social/           invite codes + register rewards (invite.ts), friend card schema, social service
+  push/             FCM HTTP v1 sender (fcm.ts), notification text + delivery (notifier.ts)
   admin/            admin queries, grants, stats
   cli/              createAdmin.ts (npm run admin:create)
   sync/             record schemas, row mapping, push/pull transaction

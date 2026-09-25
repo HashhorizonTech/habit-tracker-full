@@ -28,6 +28,7 @@ export async function createTestApp({ env, ...options }: TestAppOptions = {}): P
   const app = await buildApp({
     env: { DATABASE_URL: databaseUrl, JWT_SECRET: "test-secret-that-is-at-least-32-characters-long", CORS_ORIGIN: "*", ...env },
     authRateLimit: { max: 10_000, timeWindow: "1 minute" },
+    socialRateLimit: { max: 10_000, timeWindow: "1 minute" },
     ...options,
   }).catch((err: unknown) => {
     rmSync(dir, { recursive: true, force: true });

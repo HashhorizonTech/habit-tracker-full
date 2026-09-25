@@ -18,12 +18,14 @@ interface AuthResponse {
   user: User;
   accessToken: string;
   refreshToken: string;
+  /** Register only (v1.2): the invite code earned both people 7 days of Plus. */
+  inviteReward?: boolean;
 }
 
 interface AuthState {
   user: User | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string, inviteCode?: string) => Promise<{ inviteReward: boolean }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -55,6 +57,12 @@ function adoptLocalData(user: User, isNewAccount: boolean) {
   if (isNewAccount) useData.getState().updateProfile({ name: user.name });
 }
 
+const beforeSignOut: (() => Promise<void>)[] = [];
+/** Work that needs the session one last time before sign-out (e.g. deleting this device's push token). */
+export const onBeforeSignOut = (fn: () => Promise<void>) => {
+  beforeSignOut.push(fn);
+};
+
 export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
@@ -65,13 +73,16 @@ export const useAuth = create<AuthState>()(
         adoptLocalData(r.user, false);
         set({ user: r.user });
       },
-      signUp: async (name, email, password) => {
-        const r = await publicApi<AuthResponse>('/v1/auth/register', { method: 'POST', json: { name, email, password } });
+      signUp: async (name, email, password, inviteCode) => {
+        const json = inviteCode ? { name, email, password, inviteCode } : { name, email, password };
+        const r = await publicApi<AuthResponse>('/v1/auth/register', { method: 'POST', json });
         await tokens.set(r.accessToken, r.refreshToken);
         adoptLocalData(r.user, true);
         set({ user: r.user });
+        return { inviteReward: !!r.inviteReward };
       },
       signOut: async () => {
+        await Promise.all(beforeSignOut.map((fn) => fn().catch(() => {})));
         const refreshToken = await tokens.getRefresh();
         if (refreshToken) await publicApi('/v1/auth/logout', { method: 'POST', json: { refreshToken } }).catch(() => {});
         await tokens.clear();

@@ -1,6 +1,7 @@
 import { request, toQuery } from './client';
 import { getRefreshToken } from './tokens';
 import type {
+  AdminReport,
   AdminStats,
   AdminUserDetail,
   AdminUserRow,
@@ -10,6 +11,7 @@ import type {
   LoginResponse,
   MeResponse,
   Paged,
+  ReportListParams,
   SubscriptionListParams,
   SubscriptionRow,
   UserListParams,
@@ -59,3 +61,9 @@ export const listSubscriptions = (p: SubscriptionListParams) =>
 
 export const listAudit = (page: number, pageSize: number) =>
   request<Paged<AuditEntry>>('GET', `/v1/admin/audit${toQuery({ page, pageSize })}`);
+
+export const listReports = (p: ReportListParams) =>
+  request<Paged<AdminReport>>('GET', `/v1/admin/reports${toQuery({ ...p })}`);
+
+export const resolveReport = (id: string, note?: string) =>
+  request<AdminReport>('POST', `/v1/admin/reports/${encodeURIComponent(id)}/resolve`, note ? { note } : {});

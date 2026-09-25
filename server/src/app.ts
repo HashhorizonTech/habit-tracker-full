@@ -12,16 +12,21 @@ import { billingRoutes } from "./routes/billing.js";
 import { exportRoutes } from "./routes/export.js";
 import { healthRoutes } from "./routes/health.js";
 import { meRoutes } from "./routes/me.js";
+import { pushRoutes } from "./routes/push.js";
+import { socialRoutes, type SocialRouteOptions } from "./routes/social.js";
 import { syncRoutes } from "./routes/sync.js";
+import { createFcmSender, type PushSender } from "./push/fcm.js";
+import { Notifier } from "./push/notifier.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     db: Db;
+    notifier: Notifier;
   }
 }
 
 export interface BuildAppOptions {
-  env: Pick<Env, "DATABASE_URL" | "JWT_SECRET" | "CORS_ORIGIN"> & Partial<BillingEnv>;
+  env: Pick<Env, "DATABASE_URL" | "JWT_SECRET" | "CORS_ORIGIN"> & Partial<BillingEnv> & Partial<Pick<Env, "FIREBASE_SERVICE_ACCOUNT_JSON">>;
   logger?: FastifyServerOptions["logger"];
   /** Limit for login/register per IP. Defaults to the contract's 10/min. */
   authRateLimit?: AuthRouteOptions["rateLimit"];
@@ -30,9 +35,16 @@ export interface BuildAppOptions {
    * GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is set, else none (verify → 503). Tests inject a fake.
    */
   googlePlay?: GooglePlayApi | null;
+  /**
+   * Push sender. Defaults to FCM HTTP v1 when FIREBASE_SERVICE_ACCOUNT_JSON is set, else none
+   * (pushes skipped). Tests inject a fake.
+   */
+  push?: PushSender | null;
+  /** Per-user limit for social writes (requests, nudges, reports). Defaults to 30/min. */
+  socialRateLimit?: SocialRouteOptions["rateLimit"];
 }
 
-export async function buildApp({ env, logger = false, authRateLimit, googlePlay }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ env, logger = false, authRateLimit, googlePlay, push, socialRateLimit }: BuildAppOptions): Promise<FastifyInstance> {
   const billingEnv: BillingEnv = { ...BILLING_ENV_DEFAULTS, ...definedOnly(env) };
   if (billingEnv.BILLING_FAKE && billingEnv.NODE_ENV === "production") {
     throw new Error("BILLING_FAKE=true is not allowed when NODE_ENV=production");
@@ -47,8 +59,20 @@ export async function buildApp({ env, logger = false, authRateLimit, googlePlay 
   const app = Fastify({ logger });
   if (billingEnv.BILLING_FAKE) app.log.warn("BILLING_FAKE is on: fake:<plan>:<id> purchase tokens are accepted");
 
+  const pushSender =
+    push !== undefined
+      ? push
+      : env.FIREBASE_SERVICE_ACCOUNT_JSON
+        ? createFcmSender(env.FIREBASE_SERVICE_ACCOUNT_JSON, { log: app.log })
+        : null;
+  if (!pushSender) app.log.info("FIREBASE_SERVICE_ACCOUNT_JSON not set: push notifications are skipped");
+
   const db = createDb(env.DATABASE_URL);
   app.decorate("db", db);
+  const notifier = new Notifier(db, pushSender, app.log);
+  app.decorate("notifier", notifier);
+  // Let in-flight pushes finish (they may delete dead tokens) before the DB closes.
+  app.addHook("onClose", async () => notifier.idle());
   app.addHook("onClose", async () => db.$disconnect());
 
   app.setErrorHandler((err, request, reply) => {
@@ -81,7 +105,7 @@ export async function buildApp({ env, logger = false, authRateLimit, googlePlay 
 
   await app.register(cors, {
     origin: parseCorsOrigin(env.CORS_ORIGIN),
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type"],
     exposedHeaders: ["Content-Disposition"],
     maxAge: 600,
@@ -98,6 +122,8 @@ export async function buildApp({ env, logger = false, authRateLimit, googlePlay 
   await app.register(meRoutes);
   await app.register(syncRoutes);
   await app.register(exportRoutes);
+  await app.register(socialRoutes, { rateLimit: socialRateLimit ?? { max: 30, timeWindow: "1 minute" } });
+  await app.register(pushRoutes);
   await app.register(billingRoutes, {
     deps: { google, packageName: billingEnv.GOOGLE_PLAY_PACKAGE_NAME, fake: billingEnv.BILLING_FAKE },
     rtdnSecret: billingEnv.GOOGLE_RTDN_SECRET,

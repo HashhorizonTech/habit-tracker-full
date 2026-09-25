@@ -5,6 +5,7 @@ import { AuditPage } from './pages/AuditPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
 import { UserDetailPage } from './pages/UserDetailPage';
 import { UsersPage } from './pages/UsersPage';
@@ -24,6 +25,7 @@ export function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="users/:id" element={<UserDetailPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="audit" element={<AuditPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

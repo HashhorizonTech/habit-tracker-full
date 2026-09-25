@@ -1,6 +1,10 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { getStats } from '../api/endpoints';
+import { qk } from '../api/queryKeys';
 import { useAdmin, useAuth } from '../auth/context';
+import { formatNumber } from '../lib/format';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -8,6 +12,7 @@ const NAV = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/users', label: 'Users', end: false },
   { to: '/subscriptions', label: 'Subscriptions', end: false },
+  { to: '/reports', label: 'Reports', end: false },
   { to: '/audit', label: 'Audit log', end: false },
 ];
 
@@ -18,6 +23,9 @@ export function Layout() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   // Menu (mobile) closes automatically on navigation: it's open only for the path it was opened on.
   const menuOpen = menuFor === location.pathname;
+  // Shares the dashboard's stats query; admin writes invalidate it, so the count stays fresh.
+  const { data: stats } = useQuery({ queryKey: qk.stats, queryFn: getStats });
+  const openReports = stats?.social?.openReports ?? 0;
 
   return (
     <div className="shell">
@@ -43,7 +51,12 @@ export function Layout() {
           <nav className="nav" aria-label="Main">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
-                {n.label}
+                <span>{n.label}</span>
+                {n.to === '/reports' && openReports > 0 && (
+                  <span className="nav-count" aria-label={`${formatNumber(openReports)} open`}>
+                    {formatNumber(openReports)}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>

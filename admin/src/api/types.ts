@@ -1,4 +1,4 @@
-// Types mirroring docs/API.md (v1 auth + v1.1 Plus / admin).
+// Types mirroring docs/API.md (v1 auth + v1.1 Plus / admin + v1.2 social admin additions).
 
 export type Role = 'user' | 'admin';
 
@@ -84,6 +84,15 @@ export interface AdminStats {
   revenue: { monthlyEstimateInr: number };
   signupsByDay: DayCount[];
   activeByDay: DayCount[];
+  /** v1.2. Optional so the dashboard still renders against a pre-v1.2 server. */
+  social?: AdminSocialStats;
+}
+
+export interface AdminSocialStats {
+  friendships: number;
+  invitesJoined30d: number;
+  nudges7d: number;
+  openReports: number;
 }
 
 export interface AdminUserRow {
@@ -103,6 +112,15 @@ export interface AdminUserDetail {
   profile: { xp: number; level: number; themeId: string | null } | null;
   counts: { habits: number; habitLogs: number; tasks: number; focusSessions: number; moodLogs: number };
   entitlements: Entitlement[];
+  /** v1.2. Optional so the page still renders against a pre-v1.2 server. */
+  social?: AdminUserSocial;
+}
+
+export interface AdminUserSocial {
+  friends: number;
+  invitedBy: { userId: string; email: string } | null;
+  invitesJoined: number;
+  blockedCount: number;
 }
 
 export type PlanFilter = 'all' | 'plus' | 'free';
@@ -141,6 +159,33 @@ export interface AuditEntry {
   targetEmail: string | null;
   details: unknown;
   createdAt: number;
+}
+
+export type ReportReason = 'spam' | 'harassment' | 'inappropriate' | 'other';
+export type ReportStatus = 'open' | 'resolved';
+export type ReportStatusFilter = ReportStatus | 'all';
+
+export interface ReportParty {
+  userId: string;
+  email: string;
+  name: string;
+}
+
+export interface AdminReport {
+  id: string;
+  reporter: ReportParty;
+  target: ReportParty;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  createdAt: number;
+  resolvedAt: number | null;
+}
+
+export interface ReportListParams {
+  status: ReportStatusFilter;
+  page: number;
+  pageSize: number;
 }
 
 export interface ApiErrorBody {

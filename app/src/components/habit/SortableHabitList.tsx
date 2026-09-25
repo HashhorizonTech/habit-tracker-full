@@ -152,10 +152,14 @@ export function SortableHabitList({ items, onReorder, onDragState }: {
 
   if (!items.length) return null;
   if (!height) {
-    // Measure one row, then switch to absolute layout.
+    // Measure one row (all rows render normally meanwhile), then switch to absolute layout.
     return (
-      <View onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
-        <HabitListRow item={items[0]} />
+      <View>
+        {items.map((it, i) => (
+          <View key={it.habit.id} onLayout={i === 0 ? (e) => setHeight(e.nativeEvent.layout.height) : undefined}>
+            <HabitListRow item={it} />
+          </View>
+        ))}
       </View>
     );
   }

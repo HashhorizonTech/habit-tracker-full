@@ -43,6 +43,29 @@ function PlusBreakdown({ stats }: { stats: AdminStats }) {
   );
 }
 
+function SocialRow({ social }: { social: NonNullable<AdminStats['social']> }) {
+  const open = social.openReports;
+  return (
+    <section aria-labelledby="social-title">
+      <h2 id="social-title" className="card-label section-label">
+        Social
+      </h2>
+      <div className="stat-grid">
+        <StatCard label="Friendships" value={formatNumber(social.friendships)} />
+        <StatCard label="Invites joined · 30 days" value={formatNumber(social.invitesJoined30d)} />
+        <StatCard label="Nudges · 7 days" value={formatNumber(social.nudges7d)} />
+        <StatCard
+          label="Open reports"
+          value={formatNumber(open)}
+          hint={open > 0 ? 'Review now →' : 'All clear'}
+          to="/reports"
+          highlight={open > 0}
+        />
+      </div>
+    </section>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <div role="status" aria-label="Loading dashboard">
@@ -72,7 +95,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle="Users, Plus and activity at a glance." />
+      <PageHeader title="Dashboard" subtitle="Users, Plus, social and activity at a glance." />
       {isPending ? (
         <DashboardSkeleton />
       ) : error ? (
@@ -106,6 +129,7 @@ export function DashboardPage() {
               hint="Active Play subscriptions"
             />
           </div>
+          {data.social && <SocialRow social={data.social} />}
           <div className="dash-grid">
             <BarChart title="Sign-ups by day" data={data.signupsByDay} color="a1" />
             <BarChart title="Active users by day" data={data.activeByDay} color="a2" />

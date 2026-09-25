@@ -105,18 +105,35 @@ export async function getUserDetail(db: Db, userId: string) {
   const user = await db.user.findUnique({ where: { id: userId }, include: { ...withHabitCount, profile: true } });
   if (!user) throw userNotFound();
   const live = { userId, deleted: false };
-  const [habitLogs, tasks, focusSessions, moodLogs, entitlements] = await Promise.all([
+  const [habitLogs, tasks, focusSessions, moodLogs, entitlements, social] = await Promise.all([
     db.habitLog.count({ where: live }),
     db.task.count({ where: live }),
     db.focusSession.count({ where: live }),
     db.moodLog.count({ where: live }),
     db.entitlement.findMany({ where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "asc" }] }),
+    getUserSocial(db, userId),
   ]);
   return {
     user: toRow(user, computePlusStatus(entitlements)),
     profile: user.profile ? { xp: user.profile.xp, level: levelForXp(user.profile.xp), themeId: user.profile.themeId } : null,
     counts: { habits: user._count.habits, habitLogs, tasks, focusSessions, moodLogs },
     entitlements: entitlements.map(toEntitlementDto),
+    social,
+  };
+}
+
+async function getUserSocial(db: Db, userId: string) {
+  const [friends, invitedVia, invitesJoined, blockedCount] = await Promise.all([
+    db.friendship.count({ where: { OR: [{ userAId: userId }, { userBId: userId }] } }),
+    db.inviteRedemption.findUnique({ where: { inviteeId: userId }, include: { inviter: { select: { id: true, email: true } } } }),
+    db.inviteRedemption.count({ where: { inviterId: userId } }),
+    db.block.count({ where: { blockerId: userId } }),
+  ]);
+  return {
+    friends,
+    invitedBy: invitedVia ? { userId: invitedVia.inviter.id, email: invitedVia.inviter.email } : null,
+    invitesJoined,
+    blockedCount,
   };
 }
 
@@ -333,7 +350,8 @@ export async function getStats(db: Db, prices: Prices) {
   const windowStart = Date.parse(`${days[0]}T00:00:00.000Z`);
   const since = { gte: windowStart };
 
-  const [total, new7d, new30d, active7d, disabled, granting, recentSignups, recentSyncs, ...activity] = await Promise.all([
+  const [social, total, new7d, new30d, active7d, disabled, granting, recentSignups, recentSyncs, ...activity] = await Promise.all([
+    getSocialStats(db, at),
     db.user.count(),
     db.user.count({ where: { createdAt: { gte: at - 7 * DAY_MS } } }),
     db.user.count({ where: { createdAt: { gte: at - 30 * DAY_MS } } }),
@@ -397,5 +415,79 @@ export async function getStats(db: Db, prices: Prices) {
     },
     signupsByDay: days.map((date) => ({ date, count: signups.get(date)! })),
     activeByDay: days.map((date) => ({ date, count: active.get(date)!.size })),
+    social,
   };
+}
+
+/** `nudges7d` counts both nudges and cheers sent in the last 7 days. */
+async function getSocialStats(db: Db, at: number) {
+  const [friendships, invitesJoined30d, nudges7d, openReports] = await Promise.all([
+    db.friendship.count(),
+    db.inviteRedemption.count({ where: { createdAt: { gte: at - 30 * DAY_MS } } }),
+    db.inboxItem.count({ where: { kind: { in: ["nudge", "cheer"] }, createdAt: { gte: at - 7 * DAY_MS } } }),
+    db.report.count({ where: { status: "open" } }),
+  ]);
+  return { friendships, invitesJoined30d, nudges7d, openReports };
+}
+
+// ---- reports ----------------------------------------------------------------------------
+
+export interface ReportFilter extends Paging {
+  status: "open" | "resolved" | "all";
+}
+
+const reportInclude = {
+  reporter: { select: { id: true, email: true, name: true } },
+  target: { select: { id: true, email: true, name: true } },
+} as const;
+
+type ReportRow = Prisma.ReportGetPayload<{ include: typeof reportInclude }>;
+
+const person = (u: { id: string; email: string; name: string }) => ({ userId: u.id, email: u.email, name: u.name });
+
+const toReportItem = (r: ReportRow) => ({
+  id: r.id,
+  reporter: person(r.reporter),
+  target: person(r.target),
+  reason: r.reason,
+  details: r.details,
+  status: r.status,
+  createdAt: r.createdAt,
+  resolvedAt: r.resolvedAt,
+  /** Not in the contract: the admin's note from resolve. */
+  resolutionNote: r.resolutionNote,
+});
+
+export type ReportItem = ReturnType<typeof toReportItem>;
+
+export async function listReports(db: Db, filter: ReportFilter): Promise<Page<ReportItem>> {
+  const where: Prisma.ReportWhereInput = filter.status === "all" ? {} : { status: filter.status };
+  const [total, rows] = await Promise.all([
+    db.report.count({ where }),
+    db.report.findMany({ where, include: reportInclude, orderBy: [{ createdAt: "desc" }, { id: "asc" }], ...paging(filter) }),
+  ]);
+  return { items: rows.map(toReportItem), total, page: filter.page, pageSize: filter.pageSize };
+}
+
+/** Idempotent: resolving a resolved report keeps the first resolution (still audited). */
+export async function resolveReport(db: Db, adminId: string, reportId: string, note?: string): Promise<ReportItem> {
+  return db.$transaction(async (tx) => {
+    const existing = await tx.report.findUnique({ where: { id: reportId } });
+    if (!existing) throw notFound("Report not found");
+    const changed = existing.status !== "resolved";
+    const row = changed
+      ? await tx.report.update({
+          where: { id: reportId },
+          data: { status: "resolved", resolvedAt: now(), resolvedBy: adminId, resolutionNote: note ?? null },
+          include: reportInclude,
+        })
+      : await tx.report.findUniqueOrThrow({ where: { id: reportId }, include: reportInclude });
+    await writeAudit(tx, {
+      adminId,
+      action: "resolve_report",
+      targetUserId: existing.targetId,
+      details: { reportId, reason: existing.reason, reporterId: existing.reporterId, note: note ?? null, changed },
+    });
+    return toReportItem(row);
+  });
 }

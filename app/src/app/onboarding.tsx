@@ -14,18 +14,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Stop } from 'react-native-svg';
 import { useAuth } from '@/api/auth';
 import { playSound } from '@/audio/sounds';
-import { HabitTile } from '@/components/habit/HabitTile';
+import { PresetRow } from '@/components/habit/PresetRow';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { Mascot, useLinearLoop, useLoop } from '@/components/illustration';
 import { Button } from '@/components/ui/Button';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Text } from '@/components/ui/Text';
-import type { Category } from '@/data/types';
+import { PRESETS, presetById, presetToHabit, type Preset } from '@/data/presets';
+import { liveHabits } from '@/data/selectors';
 import { haptic } from '@/lib/haptics';
+import { FREE_HABIT_LIMIT } from '@/lib/plusFeatures';
 import { useResponsive } from '@/lib/responsive';
 import { useSvgId } from '@/lib/useSvgId';
 import { useData } from '@/store/data';
 import { useOnboarding } from '@/store/onboarding';
+import { usePlus } from '@/store/plus';
 import { toast } from '@/store/ui';
 import { mix, splitAlpha, useTheme } from '@/theme';
 import { duration, easing } from '@/theme/motion';
@@ -52,25 +55,17 @@ const GOALS: readonly { id: GoalId; icon: IconName }[] = [
   { id: 'Personal', icon: 'sun' },
 ];
 
-interface Suggestion {
-  name: string;
-  icon: IconName;
-  hue: number;
-  sub: string;
-  category: Category;
-  goal: number;
-  unit: string;
-  step: number;
-}
-
-const SUGG: Record<GoalId, Suggestion> = {
-  Health: { name: 'Drink water', icon: 'drop', hue: 230, sub: '8 glasses a day', category: 'Health', goal: 8, unit: 'glasses', step: 1 },
-  Fitness: { name: 'Morning stretch', icon: 'dumbbell', hue: 25, sub: '10 minutes', category: 'Fitness', goal: 10, unit: 'min', step: 5 },
-  Learning: { name: 'Read', icon: 'book', hue: 60, sub: '20 pages', category: 'Learning', goal: 20, unit: 'pages', step: 5 },
-  Productivity: { name: 'Plan tomorrow', icon: 'bolt', hue: 285, sub: '2 minutes each evening', category: 'Work', goal: 1, unit: 'times', step: 1 },
-  Mindfulness: { name: 'Meditate', icon: 'leaf', hue: 165, sub: '10 minutes', category: 'Health', goal: 10, unit: 'min', step: 5 },
-  Personal: { name: 'Journal', icon: 'pen', hue: 340, sub: 'One line a day', category: 'Personal', goal: 1, unit: 'entry', step: 1 },
+/** The preset suggested for each goal (prototype SUGG). */
+const SUGG: Record<GoalId, string> = {
+  Health: 'water',
+  Fitness: 'stretch',
+  Learning: 'read',
+  Productivity: 'plan',
+  Mindfulness: 'meditate',
+  Personal: 'journal',
 };
+
+const suggestionFor = (g: GoalId): Preset => presetById(SUGG[g]) ?? PRESETS[0];
 
 const isGoal = (g: string): g is GoalId => Object.prototype.hasOwnProperty.call(SUGG, g);
 
@@ -362,39 +357,6 @@ const GoalCard = memo(function GoalCard({ id, icon, on, onPress }: {
   );
 });
 
-const SuggestionRow = memo(function SuggestionRow({ goal, on, onPress }: {
-  goal: GoalId; on: boolean; onPress: (id: GoalId) => void;
-}) {
-  const { c } = useTheme();
-  const s = SUGG[goal];
-  const v = usePop(on);
-  const dot = useAnimatedStyle(() => ({ transform: [{ scale: v.value }] }));
-  const bd = on ? c.a1 : c.line;
-  return (
-    <PressableScale
-      onPress={() => onPress(goal)}
-      scaleTo={0.98}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: on, checked: on }}
-      accessibilityLabel={`${s.name}, ${s.sub}`}
-      style={[styles.sugg, { backgroundColor: c.surface, borderColor: bd }]}
-    >
-      <HabitTile hue={s.hue} icon={s.icon} size={46} />
-      <View style={styles.suggText}>
-        <Text style={styles.suggName} numberOfLines={1}>
-          {s.name}
-        </Text>
-        <Text style={styles.suggSub} color="ink3" numberOfLines={1}>
-          {s.sub}
-        </Text>
-      </View>
-      <View style={[styles.radio, { borderColor: bd }]}>
-        <Animated.View style={[styles.radioDot, { backgroundColor: c.a1 }, dot]} />
-      </View>
-    </PressableScale>
-  );
-});
-
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function Onboarding() {
@@ -411,9 +373,19 @@ export default function Onboarding() {
   }, [stored]);
 
   const [step, setStep] = useState(0);
-  const [picked, setPicked] = useState<GoalId>(goals[0]);
-  // Deselecting the picked goal falls back to the first remaining one (prototype behaviour).
-  const first: GoalId = goals.includes(picked) ? picked : goals[0];
+  // Suggestions follow the goals; the rest of the presets sit behind "More goals".
+  const suggested = useMemo(() => [...new Set(goals.map(suggestionFor))], [goals]);
+  const more = useMemo(() => PRESETS.filter((p) => !suggested.includes(p)), [suggested]);
+  const [showMore, setShowMore] = useState(false);
+  // null = untouched: the first suggestion is preselected until the user picks for themselves.
+  const [pickedIds, setPickedIds] = useState<string[] | null>(null);
+  const { active: plus } = usePlus();
+  const habitCount = useData((s) => liveHabits(s.habits).length);
+  const room = plus ? Infinity : Math.max(0, FREE_HABIT_LIMIT - habitCount);
+  const picked = pickedIds ?? (room > 0 ? [suggested[0].id] : []);
+  // Already at the Free limit (e.g. an account with habits): let them through without adding.
+  const canStart = picked.length > 0 || room === 0;
+  const full = picked.length >= room;
   const finishing = useRef(false);
 
   // Android hardware back walks back through the steps; on step 1 it leaves as usual.
@@ -433,44 +405,46 @@ export default function Onboarding() {
     setGoals(next);
   };
 
-  const pickFirst = (id: GoalId) => {
+  const togglePick = (id: string) => {
+    if (picked.includes(id)) {
+      haptic.selection();
+      setPickedIds(picked.filter((p) => p !== id));
+      return;
+    }
+    if (picked.length >= room) return; // the Free note below explains why
     haptic.selection();
-    setPicked(id);
+    setPickedIds([...picked, id]);
   };
 
   const finish = () => {
     if (finishing.current) return;
     finishing.current = true;
-    const s = SUGG[first];
-    useData.getState().addHabit({
-      name: s.name,
-      icon: s.icon,
-      hue: s.hue,
-      category: s.category,
-      frequency: { type: 'daily' },
-      goal: s.goal,
-      unit: s.unit,
-      step: s.step,
-      timeOfDay: 'Anytime',
-      reminder: null,
-      notes: null,
-    });
+    const picks = PRESETS.filter((p) => picked.includes(p.id));
+    const { addHabit } = useData.getState();
+    for (const p of picks) addHabit(presetToHabit(p));
     useOnboarding.getState().markSeen();
     playSound('complete');
     haptic.success();
-    toast('Your first habit is planted', 'leaf');
+    if (picks.length) toast(picks.length > 1 ? 'Your first habits are planted' : 'Your first habit is planted', 'leaf');
     // Signed out: flipping `seen` makes the root guard swap this screen for sign-in.
     if (useAuth.getState().user) router.replace('/');
   };
 
   const next = () => {
     if (step < FIRST_STEP) setStep(step + 1);
-    else finish();
+    else if (canStart) finish();
   };
 
   const slide = step < GOALS_STEP;
-  const cta =
-    step === 4 ? 'Get started' : step === FIRST_STEP ? `Start with ${SUGG[first].name}` : 'Continue';
+  const startLabel =
+    picked.length === 1
+      ? `Start with ${presetById(picked[0])?.name ?? 'this goal'}`
+      : picked.length
+        ? `Start with ${picked.length} goals`
+        : canStart
+          ? 'Continue'
+          : 'Pick a goal to start';
+  const cta = step === 4 ? 'Get started' : step === FIRST_STEP ? startLabel : 'Continue';
 
   const padX = isTablet ? Math.max(48, (width - 560) / 2) : 24;
   const padTop = isTablet ? Math.max(48, insets.top + 24) : Math.max(64, insets.top + 12);
@@ -558,20 +532,49 @@ export default function Onboarding() {
                     <Text style={styles.formTitle} accessibilityRole="header">
                       Create your first habit
                     </Text>
-                    <Text color="ink2">Start tiny. We picked a few based on your goals.</Text>
+                    <Text color="ink2">Start tiny. We picked a few based on your goals — check any that fit.</Text>
                   </View>
-                  <View style={styles.list} accessibilityRole="radiogroup">
-                    {goals.map((g) => (
-                      <SuggestionRow key={g} goal={g} on={g === first} onPress={pickFirst} />
+                  <View style={styles.list}>
+                    {suggested.map((p) => (
+                      <PresetRow key={p.id} preset={p} on={picked.includes(p.id)} full={full} fullHint="No room left on Free" onPress={togglePick} />
                     ))}
                   </View>
+                  {full && room < PRESETS.length && (
+                    <View style={[styles.note, { backgroundColor: c.a1soft }]} accessibilityLiveRegion="polite">
+                      <Text variant="small" color="ink2">
+                        {`Free has room for ${FREE_HABIT_LIMIT} habits. You can add more any time with Plus.`}
+                      </Text>
+                    </View>
+                  )}
+                  <PressableScale
+                    onPress={() => setShowMore(!showMore)}
+                    scaleTo={0.98}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showMore }}
+                    accessibilityLabel="More goals"
+                    style={[styles.more, { borderColor: c.line }]}
+                  >
+                    <Text variant="bodyStrong" style={styles.fill}>
+                      More goals
+                    </Text>
+                    <View style={{ transform: [{ rotate: showMore ? '-90deg' : '90deg' }] }}>
+                      <Icon name="chev" size={18} color={c.ink3} />
+                    </View>
+                  </PressableScale>
+                  {showMore && (
+                    <View style={styles.list}>
+                      {more.map((p) => (
+                        <PresetRow key={p.id} preset={p} on={picked.includes(p.id)} full={full} fullHint="No room left on Free" onPress={togglePick} />
+                      ))}
+                    </View>
+                  )}
                 </>
               )}
             </ScrollView>
           </StepEnter>
         )}
 
-        <Button label={cta} onPress={next} />
+        <Button label={cta} onPress={next} disabled={step === FIRST_STEP && !canStart} />
       </View>
     </View>
   );
@@ -662,10 +665,6 @@ const styles = StyleSheet.create({
   },
 
   list: { gap: 10 },
-  sugg: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 22, borderWidth: 1.5 },
-  suggText: { flex: 1 },
-  suggName: { fontFamily: fonts.body700, fontSize: 15, lineHeight: 20 },
-  suggSub: { fontFamily: fonts.body400, fontSize: 13, lineHeight: 18 },
-  radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  radioDot: { width: 12, height: 12, borderRadius: 6 },
+  note: { padding: 14, borderRadius: 18 },
+  more: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1 },
 });

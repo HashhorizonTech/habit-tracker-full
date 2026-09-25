@@ -28,6 +28,9 @@ const EnvSchema = z
     /** Accept `fake:<plan>:<random>` purchase tokens without Google. Never in production. */
     BILLING_FAKE: flag,
 
+    /** Firebase service-account key (raw JSON or a path). Unset = pushes are skipped (inbox still works). */
+    FIREBASE_SERVICE_ACCOUNT_JSON: optionalString,
+
     PRICE_MONTHLY_INR: z.coerce.number().nonnegative().default(99),
     PRICE_YEARLY_INR: z.coerce.number().nonnegative().default(699),
     PRICE_LIFETIME_INR: z.coerce.number().nonnegative().default(1999),

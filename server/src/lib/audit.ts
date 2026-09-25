@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Db, Tx } from "./db.js";
 import { now } from "./time.js";
 
-export type AuditAction = "grant" | "revoke" | "disable" | "enable" | "delete";
+export type AuditAction = "grant" | "revoke" | "disable" | "enable" | "delete" | "resolve_report";
 
 export async function writeAudit(
   db: Db | Tx,

@@ -1,4 +1,4 @@
-import type { EntitlementStatus, PlusStatus } from '../api/types';
+import type { EntitlementStatus, PlusStatus, ReportReason, ReportStatus } from '../api/types';
 import { humanize, plusLabel } from '../lib/format';
 
 export function PlanBadge({ plus }: { plus: PlusStatus }) {
@@ -31,4 +31,23 @@ export function EntitlementStatusBadge({ status }: { status: EntitlementStatus }
 
 export function RoleBadge({ role }: { role: string }) {
   return role === 'admin' ? <span className="badge badge-plus">Admin</span> : <span className="badge badge-free">User</span>;
+}
+
+const REASON_TONE: Record<ReportReason, string> = {
+  harassment: 'danger',
+  inappropriate: 'danger',
+  spam: 'warn',
+  other: 'muted',
+};
+
+export function ReportReasonBadge({ reason }: { reason: ReportReason }) {
+  return <span className={`badge badge-${REASON_TONE[reason] ?? 'muted'}`}>{humanize(reason)}</span>;
+}
+
+export function ReportStatusBadge({ status }: { status: ReportStatus }) {
+  return status === 'open' ? (
+    <span className="badge badge-warn">Open</span>
+  ) : (
+    <span className="badge badge-positive">Resolved</span>
+  );
 }

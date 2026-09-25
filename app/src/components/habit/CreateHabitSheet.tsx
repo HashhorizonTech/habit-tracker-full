@@ -1,3 +1,4 @@
+import { router, type Href } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -13,6 +14,7 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Stepper } from '@/components/ui/Stepper';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
+import { presetById, type Preset, type Tracking } from '@/data/presets';
 import { liveHabits } from '@/data/selectors';
 import type { Category, Frequency, FrequencyType, TimeOfDay } from '@/data/types';
 import { haptic } from '@/lib/haptics';
@@ -29,23 +31,22 @@ export type HabitPrefill = Partial<{ name: string; icon: IconName; hue: number; 
 const ICONS: IconName[] = ['drop', 'book', 'dumbbell', 'code', 'leaf', 'pen', 'sun', 'moon', 'heart', 'coffee', 'bolt', 'music'];
 const CATEGORIES: Category[] = ['Morning', 'Health', 'Fitness', 'Learning', 'Work', 'Personal', 'Evening'];
 const FREQS: { value: FrequencyType; label: string }[] = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'days', label: 'Specific days' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'daily', label: 'Every day' },
+  { value: 'days', label: 'Some days' },
+  { value: 'weekly', label: 'Times a week' },
+  { value: 'monthly', label: 'Times a month' },
+  { value: 'custom', label: 'Every few days' },
 ];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const UNITS = ['times', 'min', 'pages', 'glasses'];
 const REMINDER_TIMES = ['7:00 AM', '8:00 AM', '12:30 PM', '6:00 PM', '9:00 PM'];
-const SUGGESTIONS: { name: string; icon: IconName; hue: number }[] = [
-  { name: 'Drink water', icon: 'drop', hue: 230 },
-  { name: 'Read', icon: 'book', hue: 60 },
-  { name: 'Stretch', icon: 'dumbbell', hue: 25 },
-  { name: 'Walk outside', icon: 'sun', hue: 120 },
-  { name: 'No phone in bed', icon: 'moon', hue: 285 },
-];
+/** Quick-fill chips: preset goals, so a tap sets tracking, goal and schedule too. */
+const SUGGESTIONS: Preset[] = ['water', 'read', 'stretch', 'walk-outside', 'no-phone']
+  .map(presetById)
+  .filter((p): p is Preset => !!p);
+/** Default daily goal when switching to Count it from Yes/No. */
+const COUNT_DEFAULT = 5;
 /** Tile icon colour on the full-strength habit colour (prototype `oklch(0.2 0.03 260)`). */
 const TILE_INK = '#1c1e2d';
 
@@ -98,8 +99,11 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
   const [days, setDays] = useState([true, true, true, true, true, false, false]);
   const [times, setTimes] = useState(5);
   const [every, setEvery] = useState(2);
+  const [tracking, setTracking] = useState<Tracking>('check');
   const [goal, setGoal] = useState(1);
   const [unit, setUnit] = useState('times');
+  // Preset chips carry their own tap size (e.g. 5 min); cleared when the unit changes by hand.
+  const [presetStep, setPresetStep] = useState<number | null>(null);
   const [reminderOn, setReminderOn] = useState(true);
   const [time, setTime] = useState('8:00 AM');
   const [notes, setNotes] = useState('');
@@ -113,6 +117,43 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
     openPaywall('habits');
   };
 
+  const chooseTracking = (t: Tracking) => {
+    if (t === tracking) return;
+    haptic.selection();
+    setTracking(t);
+    setPresetStep(null);
+    if (t === 'check') {
+      setGoal(1);
+      setUnit('times');
+    } else if (goal <= 1) {
+      setGoal(COUNT_DEFAULT);
+    }
+  };
+
+  const applyPreset = (p: Preset) => {
+    haptic.selection();
+    setName(p.name);
+    setIcon(p.icon);
+    setHue(p.hue);
+    setCategory(p.category);
+    setTracking(p.tracking);
+    setGoal(p.goal);
+    setUnit(p.unit);
+    setPresetStep(p.step);
+    setFreq(p.frequency.type);
+    if (p.frequency.days) setDays([...p.frequency.days]);
+    if (p.frequency.times) setTimes(p.frequency.times);
+    if (p.frequency.every) setEvery(p.frequency.every);
+  };
+
+  const browsePresets = () => {
+    close();
+    router.push('/presets' as Href);
+  };
+
+  const count = tracking === 'count';
+  const amount = count ? `${goal} ${unit}` : 'Yes/No';
+
   const save = () => {
     if (!trimmed || atLimit) return;
     const frequency: Frequency =
@@ -123,9 +164,9 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
       hue,
       category,
       frequency,
-      goal,
+      goal: count ? goal : 1,
       unit,
-      step: unit === 'min' || unit === 'pages' ? 5 : 1,
+      step: !count ? 1 : (presetStep ?? (unit === 'min' || unit === 'pages' ? 5 : 1)),
       timeOfDay: deriveTimeOfDay(category, reminderOn, time),
       reminder: reminderOn ? { on: true, time } : null,
       notes: notes.trim() || null,
@@ -154,7 +195,7 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
             {trimmed || 'New habit'}
           </Text>
           <Text variant="small" color="ink2" numberOfLines={2}>
-            {`${freqText(freq, days, times, every)} · ${goal} ${unit} · ${category}`}
+            {`${freqText(freq, days, times, every)} · ${amount}`}
           </Text>
         </View>
       </View>
@@ -172,22 +213,49 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
         />
         <View style={styles.wrap6}>
           {SUGGESTIONS.map((s) => (
-            <Chip
-              key={s.name}
-              label={s.name}
-              icon={s.icon}
-              variant="soft"
-              size="sm"
-              onPress={() => {
-                haptic.selection();
-                setName(s.name);
-                setIcon(s.icon);
-                setHue(s.hue);
-              }}
-            />
+            <Chip key={s.id} label={s.name} icon={s.icon} variant="soft" size="sm" onPress={() => applyPreset(s)} />
           ))}
         </View>
+        <PressableScale
+          onPress={browsePresets}
+          scaleTo={0.98}
+          accessibilityLabel="Browse preset goals"
+          accessibilityHint="Closes this sheet and opens the preset list"
+          style={[styles.browse, { backgroundColor: c.surface, borderColor: c.line }]}
+        >
+          <Icon name="sparkle" size={18} color={c.a1text} />
+          <Text variant="bodyStrong" style={styles.flex}>
+            Browse preset goals
+          </Text>
+          <Icon name="chev" size={18} color={c.ink3} />
+        </PressableScale>
       </View>
+
+      <Section title="How will you track it?">
+        <View style={styles.trackRow} accessibilityRole="radiogroup" accessibilityLabel="How will you track it?">
+          <TrackCard
+            on={!count}
+            title="Yes / No"
+            sub="Done or not done"
+            onPress={() => chooseTracking('check')}
+            art={<Icon name="check" size={22} color={!count ? c.a1ink : c.ink2} strokeWidth={2.8} />}
+          />
+          <TrackCard
+            on={count}
+            title="Count it"
+            sub="Glasses, pages, minutes…"
+            onPress={() => chooseTracking('count')}
+            art={
+              <View style={styles.countArt}>
+                <Icon name="stats" size={20} color={count ? c.a1ink : c.ink2} strokeWidth={2.6} />
+                <Text style={styles.countNum} color={count ? 'a1ink' : 'ink2'}>
+                  8
+                </Text>
+              </View>
+            }
+          />
+        </View>
+      </Section>
 
       <Section title="Icon">
         {[ICONS.slice(0, 6), ICONS.slice(6)].map((row, r) => (
@@ -304,29 +372,32 @@ export function CreateHabitSheet({ close, prefill }: { close: () => void; prefil
         )}
       </Section>
 
-      <Section title="Daily goal & duration">
-        <View style={styles.goalRow}>
-          <Stepper
-            value={goal}
-            label="daily goal"
-            min={1}
-            max={99}
-            onDec={() => setGoal((g) => clamp(g - 1, 1, 99))}
-            onInc={() => setGoal((g) => clamp(g + 1, 1, 99))}
-          />
-          {UNITS.map((u) => (
-            <Chip
-              key={u}
-              label={u}
-              selected={u === unit}
-              onPress={() => {
-                haptic.selection();
-                setUnit(u);
-              }}
+      {count && (
+        <Section title="Daily goal & duration">
+          <View style={styles.goalRow}>
+            <Stepper
+              value={goal}
+              label="daily goal"
+              min={1}
+              max={99}
+              onDec={() => setGoal((g) => clamp(g - 1, 1, 99))}
+              onInc={() => setGoal((g) => clamp(g + 1, 1, 99))}
             />
-          ))}
-        </View>
-      </Section>
+            {UNITS.map((u) => (
+              <Chip
+                key={u}
+                label={u}
+                selected={u === unit}
+                onPress={() => {
+                  haptic.selection();
+                  setUnit(u);
+                  setPresetStep(null);
+                }}
+              />
+            ))}
+          </View>
+        </Section>
+      )}
 
       <View style={[styles.reminder, { backgroundColor: c.surface, borderColor: c.line }]}>
         <View style={styles.reminderHead}>
@@ -407,6 +478,35 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** One of the two big "How will you track it?" choices. */
+function TrackCard({ on, title, sub, art, onPress }: {
+  on: boolean;
+  title: string;
+  sub: string;
+  art: ReactNode;
+  onPress: () => void;
+}) {
+  const { c } = useTheme();
+  return (
+    <PressableScale
+      onPress={onPress}
+      scaleTo={0.97}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on, checked: on }}
+      accessibilityLabel={`${title}. ${sub}`}
+      style={[styles.track, { backgroundColor: on ? c.a1soft : c.surface, borderColor: on ? c.a1 : c.line }]}
+    >
+      <View style={[styles.trackArt, { backgroundColor: on ? c.a1 : c.surface2 }]}>{art}</View>
+      <View style={styles.trackText}>
+        <Text variant="bodyStrong">{title}</Text>
+        <Text variant="small" color="ink2">
+          {sub}
+        </Text>
+      </View>
+    </PressableScale>
+  );
+}
+
 /** Preview tile: full habit colour, dark icon, floating 0 → -6 → 0 over 3.5 s. */
 function FloatingTile({ color, icon }: { color: string; icon: IconName }) {
   const t = useLoop(3500);
@@ -470,6 +570,13 @@ const styles = StyleSheet.create({
   day: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontFamily: fonts.body700, fontSize: 13.5 },
   countRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingRight: 8, paddingLeft: 16, borderRadius: 16, borderWidth: 1 },
+  browse: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1 },
+  trackRow: { flexDirection: 'row', gap: 10 },
+  track: { flex: 1, gap: 12, padding: 16, borderRadius: 22, borderWidth: 1.5 },
+  trackArt: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  trackText: { gap: 2 },
+  countArt: { flexDirection: 'row', alignItems: 'flex-end', gap: 1 },
+  countNum: { fontFamily: fonts.display800, fontSize: 13, lineHeight: 14 },
   goalRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
   reminder: { gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1 },
   reminderHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },

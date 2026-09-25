@@ -10,6 +10,7 @@ import { DangerZone } from './user/DangerZone';
 import { EntitlementsTable } from './user/EntitlementsTable';
 import { GrantPlusForm } from './user/GrantPlusForm';
 import { PlusCard } from './user/PlusCard';
+import { SocialCard } from './user/SocialCard';
 import { UserHeader } from './user/UserHeader';
 
 function DetailSkeleton() {
@@ -54,6 +55,7 @@ export function UserDetailPage() {
             <CountsCard counts={data.counts} profile={data.profile} />
             <PlusCard plus={data.user.plus} />
           </div>
+          {data.social && <SocialCard social={data.social} />}
           <GrantPlusForm user={data.user} />
           <EntitlementsTable entitlements={data.entitlements} />
           <DangerZone user={data.user} />

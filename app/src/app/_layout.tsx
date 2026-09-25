@@ -21,12 +21,17 @@ import { useReminderSync } from '@/lib/reminders';
 import { applyStreakProtection } from '@/lib/streakProtection';
 import { initSounds } from '@/audio/sounds';
 import { useFocusEngine } from '@/focus/engine';
+import { useFriendCardPublisher } from '@/lib/friendCard';
 import { initNotifications } from '@/lib/notifications';
+import { startPush, useSocialNotificationResponse } from '@/lib/push';
 import { useResponsive } from '@/lib/responsive';
 import { usePersistHydrated } from '@/lib/usePersistHydrated';
 import { useDataHydrated } from '@/store/data';
 import { useOnboarding } from '@/store/onboarding';
+import { usePendingInvite } from '@/store/pendingInvite';
 import { startPlus, usePlusStore } from '@/store/plus';
+import { startSocial, useSocial } from '@/store/social';
+import { useSocialPrefs } from '@/store/socialPrefs';
 import { ThemeProvider, useTendFonts, useTheme } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -42,6 +47,8 @@ function Shell() {
   useFocusEngine();
   useReminderSync();
   usePlusGuards();
+  useFriendCardPublisher();
+  useSocialNotificationResponse();
   return (
     <RootBlurTarget.Provider value={blurTarget}>
       <StatusBar style={dark ? 'light' : 'dark'} />
@@ -67,8 +74,15 @@ function Shell() {
               <Stack.Screen name="themes" />
               <Stack.Screen name="notifications" />
               <Stack.Screen name="habit/[id]" />
+              <Stack.Screen name="presets" />
               <Stack.Screen name="plus" options={{ animation: isDesktop ? 'none' : 'slide_from_bottom' }} />
+              <Stack.Screen name="friends/index" />
+              <Stack.Screen name="friends/[id]" />
+              <Stack.Screen name="friends/inbox" />
+              <Stack.Screen name="friends/sharing" />
             </Stack.Protected>
+            {/* Invite links work signed in (friend request) or out (kept for sign-up). */}
+            <Stack.Screen name="invite/[code]" />
             {/* Design-system review screen: development builds only. */}
             <Stack.Protected guard={__DEV__ && signedIn}>
               <Stack.Screen name="dev/design-system" />
@@ -97,7 +111,10 @@ export default function RootLayout() {
   const authReady = usePersistHydrated(useAuth.persist);
   const onboardingReady = usePersistHydrated(useOnboarding.persist);
   const plusReady = usePersistHydrated(usePlusStore.persist);
-  const ready = fontsReady && dataReady && authReady && onboardingReady && plusReady;
+  const socialReady = usePersistHydrated(useSocial.persist);
+  const socialPrefsReady = usePersistHydrated(useSocialPrefs.persist);
+  const inviteReady = usePersistHydrated(usePendingInvite.persist);
+  const ready = fontsReady && dataReady && authReady && onboardingReady && plusReady && socialReady && socialPrefsReady && inviteReady;
   useEffect(() => {
     void initSounds();
     void initNotifications();
@@ -108,6 +125,8 @@ export default function RootLayout() {
     startSync();
     startPrefsSync();
     startPlus();
+    startSocial();
+    startPush();
     void initBilling();
     applyStreakProtection();
     const app = AppState.addEventListener('change', (st) => st === 'active' && applyStreakProtection());

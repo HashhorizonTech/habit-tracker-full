@@ -8,11 +8,18 @@ import { createRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../l
 import { now } from "../lib/time.js";
 import { toPublicUser } from "../lib/users.js";
 import { parseInput } from "../lib/validate.js";
+import { redeemInvite } from "../social/invite.js";
 
 const email = z.string().trim().toLowerCase().pipe(z.email().max(254));
 const password = z.string().min(8).max(128);
 
-const RegisterBody = z.object({ email, password, name: z.string().trim().min(1).max(100) });
+const RegisterBody = z.object({
+  email,
+  password,
+  name: z.string().trim().min(1).max(100),
+  // Anything string-like is accepted; codes that don't resolve are ignored (registration still succeeds).
+  inviteCode: z.string().max(64).nullish().catch(undefined),
+});
 const LoginBody = z.object({ email, password: z.string().min(1).max(128) });
 const RefreshBody = z.object({ refreshToken: z.string().min(1).max(512) });
 
@@ -40,7 +47,20 @@ export async function authRoutes(app: FastifyInstance, { rateLimit }: AuthRouteO
       if (isUniqueViolation(err)) throw new AppError(409, "EMAIL_TAKEN", "An account with this email already exists");
       throw err;
     }
-    return reply.code(201).send({ user: toPublicUser(user), ...(await issueSession(user.id)) });
+    let inviteReward = false;
+    if (body.inviteCode) {
+      try {
+        const redemption = await redeemInvite(app.db, user.id, body.inviteCode);
+        if (redemption) {
+          inviteReward = redemption.rewarded;
+          app.notifier.notify(redemption.inviterId, "invite_joined", user.name);
+        }
+      } catch (err) {
+        // The account exists already; a failed invite must not fail registration.
+        request.log.error({ err }, "invite redemption failed");
+      }
+    }
+    return reply.code(201).send({ user: toPublicUser(user), ...(await issueSession(user.id)), inviteReward });
   });
 
   app.post("/v1/auth/login", limited, async (request) => {

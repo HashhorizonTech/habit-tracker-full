@@ -7,8 +7,10 @@ import {
   grant,
   listAudit,
   listSubscriptions,
+  listReports,
   listUsers,
   type Prices,
+  resolveReport,
   revokeEntitlement,
   setDisabled,
 } from "../admin/service.js";
@@ -39,6 +41,8 @@ const SubscriptionsQuery = z.object({
 
 const AuditQuery = z.object(Paging);
 
+const ReportsQuery = z.object({ status: z.enum(["open", "resolved", "all"]).default("all"), ...Paging });
+
 const IdParams = z.object({ id: z.string().min(1).max(200) });
 
 const note = z.string().trim().min(1).max(500).optional();
@@ -55,6 +59,7 @@ const GrantBody = z
   });
 
 const RevokeBody = z.object({ note }).default({});
+const ResolveBody = z.object({ note }).default({});
 
 export async function adminRoutes(app: FastifyInstance, { prices }: AdminRouteOptions): Promise<void> {
   app.addHook("onRequest", app.requireAdmin);
@@ -93,4 +98,12 @@ export async function adminRoutes(app: FastifyInstance, { prices }: AdminRouteOp
   app.get("/v1/admin/subscriptions", async (request) => listSubscriptions(app.db, parseInput(SubscriptionsQuery, request.query)));
 
   app.get("/v1/admin/audit", async (request) => listAudit(app.db, parseInput(AuditQuery, request.query)));
+
+  app.get("/v1/admin/reports", async (request) => listReports(app.db, parseInput(ReportsQuery, request.query)));
+
+  app.post("/v1/admin/reports/:id/resolve", async (request) => {
+    const { id } = parseInput(IdParams, request.params);
+    const body = parseInput(ResolveBody, request.body ?? undefined);
+    return resolveReport(app.db, request.userId, id, body.note);
+  });
 }

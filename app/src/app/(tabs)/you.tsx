@@ -24,6 +24,7 @@ import { openPaywall } from '@/lib/plusFeatures';
 import { levelInfo } from '@/lib/xp';
 import { useData } from '@/store/data';
 import { usePlus } from '@/store/plus';
+import { useSocial } from '@/store/social';
 import { toast, useUI } from '@/store/ui';
 import { useTheme } from '@/theme';
 import { fonts } from '@/theme/tokens';
@@ -113,6 +114,34 @@ function PlusCard() {
   );
 }
 
+/** Friends entry: count and unread, or the invite offer when there are none yet. */
+function FriendsCard() {
+  const { c } = useTheme();
+  const friends = useSocial((s) => s.friends.length);
+  const unread = useSocial((s) => s.unreadCount);
+  const sub = friends
+    ? `${friends} ${friends === 1 ? 'friend' : 'friends'}${unread ? ` · ${unread} new` : ''}`
+    : `Invite friends — you both get 7 days of Plus${unread ? ` · ${unread} new` : ''}`;
+  return (
+    <PressableScale
+      onPress={() => router.push('/friends')}
+      scaleTo={0.98}
+      accessibilityLabel={`Friends. ${sub}`}
+      style={[styles.friends, { backgroundColor: c.surface, borderColor: c.line }]}
+    >
+      <View style={[styles.plusTile, { backgroundColor: c.a2soft }]}>
+        <Icon name="users" size={20} color={c.ink} />
+        {unread > 0 && <View style={[styles.friendsDot, { backgroundColor: c.a1, borderColor: c.surface }]} />}
+      </View>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text variant="bodyStrong">Friends</Text>
+        <Text variant="small" color="ink2" numberOfLines={2}>{sub}</Text>
+      </View>
+      <Icon name="chev" size={18} color={c.ink3} />
+    </PressableScale>
+  );
+}
+
 function ExportSheet({ close }: { close: () => void }) {
   const run = (f: 'csv' | 'json') => {
     close();
@@ -186,6 +215,7 @@ export default function YouScreen() {
       </View>
 
       <PlusCard />
+      <FriendsCard />
 
       <View style={[styles.stats, { borderColor: c.line }]}>
         <PressableScale onPress={openStreak} style={styles.stat} accessibilityLabel={`${stats.streak} day current streak. Opens streak details`}>
@@ -262,5 +292,7 @@ const styles = StyleSheet.create({
   plus: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 22, marginBottom: 24 },
   plusMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
   plusTile: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  friends: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 22, borderWidth: 1, marginTop: -12, marginBottom: 24 },
+  friendsDot: { position: 'absolute', top: -2, right: -2, width: 12, height: 12, borderRadius: 6, borderWidth: 2 },
   manage: { height: 34, paddingHorizontal: 14, borderRadius: 17, justifyContent: 'center' },
 });

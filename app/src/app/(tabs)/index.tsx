@@ -29,8 +29,21 @@ import { presetValues, useFocus } from '@/store/focus';
 import { useResponsive } from '@/lib/responsive';
 import { levelInfo } from '@/lib/xp';
 import { useData } from '@/store/data';
+import { useSocial } from '@/store/social';
 import { useTheme } from '@/theme';
 import { fonts } from '@/theme/tokens';
+
+/** Friends shortcut with a dot when there's new activity. */
+function FriendsButton() {
+  const { c } = useTheme();
+  const unread = useSocial((s) => s.unreadCount);
+  return (
+    <View>
+      <IconButton icon="users" label={unread ? `Friends, ${unread} new` : 'Friends'} onPress={() => router.push('/friends')} />
+      {unread > 0 && <View pointerEvents="none" style={[styles.dot, { backgroundColor: c.a1, borderColor: c.bg }]} />}
+    </View>
+  );
+}
 
 function useToday() {
   const habitsMap = useData((s) => s.habits);
@@ -89,6 +102,7 @@ export default function TodayScreen() {
         <Text color="ink2">Let{"'"}s make today count.</Text>
       </View>
       <View style={styles.headerActions}>
+        <FriendsButton />
         <IconButton icon="calendar" label="Open calendar" onPress={() => router.push('/calendar')} />
         <PressableScale kind="icon" onPress={() => router.navigate('/you')} accessibilityLabel={`Profile, level ${xp.level}`}>
           <Avatar name={name} progress={xp.progress} />
@@ -242,6 +256,7 @@ export default function TodayScreen() {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 8, marginBottom: 26 },
   headerActions: { flexDirection: 'row', gap: 8 },
+  dot: { position: 'absolute', top: 1, right: 1, width: 12, height: 12, borderRadius: 6, borderWidth: 2 },
   dialRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
